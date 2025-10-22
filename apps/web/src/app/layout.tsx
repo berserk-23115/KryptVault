@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-	title: "krypt-vault",
-	description: "krypt-vault",
+	title: "Krypt Vault | Secure Storage for Your Secrets",
+	description: "Krypt Vault is a redefined secure storage and file sharing solution focusing on security and providing granular control in every process step.",
 };
 
 export default function RootLayout({
