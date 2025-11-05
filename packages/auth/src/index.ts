@@ -2,7 +2,7 @@ import { db } from "@krypt-vault/db";
 import * as schema from "@krypt-vault/db/schema/auth";
 import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { haveIBeenPwned, lastLoginMethod, twoFactor } from "better-auth/plugins";
+import { bearer, haveIBeenPwned, lastLoginMethod, twoFactor } from "better-auth/plugins";
 import { passkey } from "better-auth/plugins/passkey";
 
 export const auth = betterAuth<BetterAuthOptions>({
@@ -29,6 +29,7 @@ export const auth = betterAuth<BetterAuthOptions>({
 		},
 	},
 	plugins: [
+		bearer(),
 	  lastLoginMethod(),
     haveIBeenPwned(),
 	  passkey(),
