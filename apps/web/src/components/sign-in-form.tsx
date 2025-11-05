@@ -13,9 +13,10 @@ import { Checkbox } from "./ui/checkbox";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { AlertCircle, Shield } from "lucide-react";
+import { AlertCircle, Fingerprint, Shield } from "lucide-react";
 import { useState } from "react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "./ui/input-otp";
+import GoogleIcon from "./icons/google";
 
 export default function SignInForm({
 	onSwitchToSignUp,
@@ -170,7 +171,7 @@ export default function SignInForm({
 
 					{/* Backup Code Input */}
 					<div className="flex flex-col items-center space-y-4">
-				
+
 						<InputOTP
 							maxLength={10}
 							value={backupCode}
@@ -190,10 +191,10 @@ export default function SignInForm({
 								<InputOTPSlot index={9} />
 							</InputOTPGroup>
 						</InputOTP>
-			
+
 					</div>
 
-					
+
 					{/* Verify Button */}
 					<Button
 						type="submit"
@@ -286,7 +287,7 @@ export default function SignInForm({
 
 					{/* 2FA Code Input */}
 					<div className="flex flex-col items-center space-y-4">
-				
+
 						<InputOTP
 							maxLength={6}
 							value={twoFactorCode}
@@ -302,10 +303,10 @@ export default function SignInForm({
 								<InputOTPSlot index={5} />
 							</InputOTPGroup>
 						</InputOTP>
-					
+
 					</div>
 
-					
+
 
 					{/* Verify Button */}
 					<Button
@@ -502,7 +503,7 @@ export default function SignInForm({
 				<div className="flex items-center my-3">
 					<div className="grow border-t border-gray-300 dark:border-gray-700"></div>
 					<span className="mx-4 text-gray-500 dark:text-gray-400 text-sm">
-						or
+						or Sign In with
 					</span>
 					<div className="grow border-t border-gray-300 dark:border-gray-700"></div>
 				</div>
@@ -513,12 +514,43 @@ export default function SignInForm({
 						type="button"
 						onClick={() => toast.info("Passkey sign-in coming soon!")}
 						variant={"outline"}
-						className="h-14 my-5 w-full text-base font-semibold rounded-xl"
+						className="h-14 mt-2 -mb-2 w-full text-base font-semibold rounded-xl"
 					>
-						Sign in with Passkey
+						<Fingerprint />
+						Passkey
 					</Button>
 					{lastMethod === "passkey" && (
-					  <Badge className="absolute -top-3 -right-3 bg-indigo-700 text-white">LAST</Badge>
+						<Badge className="absolute -top-3 -right-3 bg-indigo-700 text-white">
+							LAST
+						</Badge>
+					)}
+				</div>
+
+				{/* Sign in with Google */}
+				<div className="relative w-full">
+					<Button
+						type="button"
+						onClick={async () => {
+							const { data, error } = await authClient.signIn.social({
+								provider: "google",
+							});
+
+							if (error) {
+								toast.error(error.message);
+							} else if (data) {
+								router.push(data.url);
+							}
+						}}
+						variant={"outline"}
+						className="h-14 w-full text-base font-semibold rounded-xl"
+					>
+						<GoogleIcon className="w-6 h-6 mr-2" />
+						Google
+					</Button>
+					{lastMethod === "google" && (
+						<Badge className="absolute -top-3 -right-3 bg-indigo-700 text-white">
+							LAST
+						</Badge>
 					)}
 				</div>
 			</form>
