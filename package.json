@@ -20,7 +20,9 @@
     "db:start": "turbo -F @krypt-vault/db db:start",
     "db:watch": "turbo -F @krypt-vault/db db:watch",
     "db:stop": "turbo -F @krypt-vault/db db:stop",
-    "db:down": "turbo -F @krypt-vault/db db:down"
+    "db:down": "turbo -F @krypt-vault/db db:down",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
   },
   "dependencies": {
     "dotenv": "^17.2.2",
