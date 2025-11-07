@@ -10,6 +10,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { Checkbox } from "./ui/checkbox";
 
 export default function SignUpForm({
 	onSwitchToSignIn,
@@ -108,7 +109,7 @@ export default function SignUpForm({
 								value={field.state.value}
 								onBlur={field.handleBlur}
 								onChange={(e) => field.handleChange(e.target.value)}
-								className="h-14 rounded-xxl md:text-lg px-4 border border-gray-300 dark:border-gray-700 bg-white/60 dark:bg-white/10 backdrop-blur-md focus:border-indigo-500 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all"
+								className="h-14 rounded-xxl md:text-lg px-4"
 								placeholder="Ayush Kumar Anand"
 							/>
 							{field.state.meta.errors.map((error) => (
@@ -134,7 +135,7 @@ export default function SignUpForm({
 								value={field.state.value}
 								onBlur={field.handleBlur}
 								onChange={(e) => field.handleChange(e.target.value)}
-								className="h-14 rounded-xxl md:text-lg px-4 border border-gray-300 dark:border-gray-700 bg-white/60 dark:bg-white/10 backdrop-blur-md focus:border-indigo-500 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all"
+								className="h-14 rounded-xxl md:text-lg px-4"
 								placeholder="you@example.com"
 							/>
 							{field.state.meta.errors.map((error) => (
@@ -160,7 +161,7 @@ export default function SignUpForm({
 								value={field.state.value}
 								onBlur={field.handleBlur}
 								onChange={(e) => field.handleChange(e.target.value)}
-								className="h-14 rounded-xxl md:text-lg px-4 border border-gray-300 dark:border-gray-700 bg-white/60 dark:bg-white/10 backdrop-blur-md focus:border-indigo-500 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all"
+								className="h-14 rounded-xxl md:text-lg px-4"
 								placeholder="••••••••"
 							/>
 							{field.state.meta.errors.map((error) => (
@@ -186,7 +187,7 @@ export default function SignUpForm({
 								value={field.state.value}
 								onBlur={field.handleBlur}
 								onChange={(e) => field.handleChange(e.target.value)}
-								className="h-14 rounded-lg md:text-lg px-4 border border-gray-300 dark:border-gray-700 bg-white/60 dark:bg-white/10 backdrop-blur-md focus:border-indigo-500 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all"
+								className="h-14 rounded-lg md:text-lg px-4"
 								placeholder="••••••••"
 							/>
 							{field.state.meta.errors.map((error) => (
@@ -202,10 +203,8 @@ export default function SignUpForm({
 				<div className="flex flex-col gap-3">
 					{/* Remember me */}
 					<div className="flex items-center space-x-2">
-						<input
-							type="checkbox"
+						<Checkbox
 							id="remember"
-							className="w-8 h-4 accent-indigo-500 rounded cursor-pointer"
 							onChange={(e) => form.setFieldValue("remember", e.target.checked)}
 						/>
 						<Label htmlFor="remember" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
