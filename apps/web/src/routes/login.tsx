@@ -28,8 +28,8 @@ function RouteComponent() {
 				/>
 			</div>
 
-			{/* Form Container - Right Aligned with Spacing and Rounded */}
-			<div className="relative z-10 m-auto flex w-full max-w-md flex-col rounded-3xl bg-white shadow-lg dark:bg-gray-900/90 sm:p-12">
+			
+			<div className="relative z-10 m-auto flex w-full max-w-md flex-col rounded-3xl bg-white shadow-lg dark:bg-neutral-900 sm:p-12">
 					{showSignIn ? (
 						<SignInForm onSwitchToSignUp={() => setShowSignIn(false)} />
 					) : (
