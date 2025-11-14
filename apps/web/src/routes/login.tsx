@@ -13,12 +13,9 @@ function RouteComponent() {
 	const [showSignIn, setShowSignIn] = useState(false);
 
 	return (
-		<div className="relative flex min-h-screen w-full overflow-hidden bg-black text-black dark:text-white">
-			<div className="absolute top-4 right-4 z-50">
-				<ModeToggle />
-			</div>
-
-			<div className="relative w-[55%] md:block">
+		<div className="relative flex h-screen w-full overflow-hidden bg-black text-black dark:text-white">
+			{/* Dither Background - Full Screen */}
+			<div className="absolute inset-0 z-0">
 				<Dither
 					waveColor={[0.35, 0.0, 0.5]}
 					disableAnimation={false}
@@ -31,14 +28,14 @@ function RouteComponent() {
 				/>
 			</div>
 
-			<div className="w-full md:w-[60%] flex items-center justify-center p-8 bg-white dark:bg-black">
-				<div className="max-w-md w-full">
+			
+			<div className="relative z-10 m-auto flex w-full max-w-md flex-col rounded-3xl bg-white shadow-lg dark:bg-neutral-900 sm:p-12">
 					{showSignIn ? (
 						<SignInForm onSwitchToSignUp={() => setShowSignIn(false)} />
 					) : (
 						<SignUpForm onSwitchToSignIn={() => setShowSignIn(true)} />
 					)}
-				</div>
+				
 			</div>
 		</div>
 	);

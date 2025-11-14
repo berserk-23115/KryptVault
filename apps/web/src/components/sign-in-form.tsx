@@ -60,20 +60,20 @@ export default function SignInForm({
 
   // Show regular sign-in form
   return (
-    <div className="w-full mx-auto mt-8 md:mt-0 text-gray-900 dark:text-white transition-colors duration-300">
+    <div className="w-auto m-auto text-gray-900 dark:text-white transition-colors duration-300">
       {/* Logo and Heading */}
-      <div className="flex flex-col items-center text-center mb-8">
+      <div className="flex flex-col items-center text-center mb-6">
         <img
           src="/web_logo.svg"
           alt="KryptVault Logo"
-          width={70}
-          height={70}
-          className="mb-3"
+          width={40}
+          height={40}
+          className="mb-2 stroke-black"
         />
-        <h1 className="md:text-4xl font-bold mb-5 whitespace-nowrap">
+        <h1 className="text-3xl md:text-3xl font-bold mb-2 whitespace-nowrap">
           Welcome to KryptVault
         </h1>
-        <p className="text-gray-600 dark:text-gray-400 text-lg">
+        <p className="text-gray-600 dark:text-gray-400 text-sm">
           Don't have an account?{" "}
           <button
             type="button"
@@ -92,7 +92,7 @@ export default function SignInForm({
           e.stopPropagation();
           form.handleSubmit();
         }}
-        className="space-y-6 w-full max-w-md mx-auto px-1 my-auto"
+        className="space-y-4 w-full max-w-md mx-auto px-1 my-auto"
       >
         {/* Email */}
         <form.Field name="email">
@@ -100,7 +100,7 @@ export default function SignInForm({
             <div>
               <Label
                 htmlFor={field.name}
-                className="text-xl font-medium mb-1 block"
+                className="text-sm font-medium mb-1.5 block"
               >
                 Email
               </Label>
@@ -111,7 +111,7 @@ export default function SignInForm({
                 value={field.state.value as string}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="h-14 rounded-lg md:text-lg px-4"
+                className="h-11 rounded-lg text-base px-3.5"
                 placeholder="you@example.com"
               />
               {field.state.meta.errors.length > 0 && (
@@ -129,7 +129,7 @@ export default function SignInForm({
             <div>
               <Label
                 htmlFor={field.name}
-                className="text-xl font-medium mb-1 block"
+                className="text-sm font-medium mb-1.5 block"
               >
                 Password
               </Label>
@@ -140,7 +140,7 @@ export default function SignInForm({
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="h-14 rounded-lg md:text-lg px-4"
+                className="h-11 rounded-lg text-base px-3.5"
                 placeholder="••••••••"
               />
               {field.state.meta.errors.length > 0 && (
@@ -181,10 +181,10 @@ export default function SignInForm({
         {/* Sign In button */}
         <form.Subscribe>
           {(state) => (
-            <div className="relative w-full">
+            <div className="relative w-full pt-2">
               <Button
                 type="submit"
-                className="h-14 w-full text-2xl font-bold rounded-lg transition"
+                className="h-11 w-full text-base font-semibold rounded-lg transition"
                 disabled={!state.canSubmit || state.isSubmitting}
               >
                 {state.isSubmitting ? "Signing in..." : "Sign In"}
@@ -194,9 +194,9 @@ export default function SignInForm({
         </form.Subscribe>
 
         {/* Divider */}
-        <div className="flex items-center my-3">
+        <div className="flex items-center my-4">
           <div className="grow border-t border-gray-300 dark:border-gray-700"></div>
-          <span className="mx-4 text-gray-500 dark:text-gray-400 text-sm">
+          <span className="mx-3 text-gray-500 dark:text-gray-400 text-xs">
             or Sign In with
           </span>
           <div className="grow border-t border-gray-300 dark:border-gray-700"></div>
@@ -208,9 +208,9 @@ export default function SignInForm({
             type="button"
             onClick={() => toast.info("Passkey sign-in coming soon!")}
             variant={"outline"}
-            className="h-14 mt-2 -mb-2 w-full text-base font-semibold rounded-xl"
+            className="h-11 w-full text-sm font-semibold rounded-lg"
           >
-            <Fingerprint />
+            <Fingerprint className="w-4 h-4" />
             Passkey
           </Button>
         </div>

@@ -66,20 +66,20 @@ export default function SignUpForm({
   if (isPending) return <Loader />;
 
   return (
-    <div className="w-full mx-auto mt-8 md:mt-0 text-gray-900 dark:text-white transition-colors duration-300">
+    <div className="w-full mx-auto text-gray-900 dark:text-white transition-colors duration-300">
       {/* Logo and Heading */}
-      <div className="flex flex-col items-center text-center mb-8">
+      <div className="flex flex-col items-center text-center mb-6">
         <img
           src="/web_logo.svg"
           alt="KryptVault Logo"
-          width={70}
-          height={70}
-          className="mb-3 invert dark:invert-0"
+          width={40}
+          height={40}
+          className="mb-2 invert dark:invert-0"
         />
-        <h1 className="md:text-4xl font-bold mb-5 whitespace-nowrap">
+        <h1 className="text-3xl md:text-3xl font-bold mb-2 whitespace-nowrap">
           Welcome to KryptVault
         </h1>
-        <p className="text-gray-600 dark:text-gray-400 text-lg">
+        <p className="text-gray-600 dark:text-gray-400 text-sm">
           Already have an account?{" "}
           <button
             onClick={onSwitchToSignIn}
@@ -97,7 +97,7 @@ export default function SignUpForm({
           e.stopPropagation();
           form.handleSubmit();
         }}
-        className="space-y-6 w-full max-w-md mx-auto px-1 my-auto"
+        className="space-y-2 w-full mx-auto"
       >
         {/* Name */}
         <form.Field name="name">
@@ -105,7 +105,7 @@ export default function SignUpForm({
             <div>
               <Label
                 htmlFor={field.name}
-                className="text-1xl font-medium mb-1 block"
+                className="text-sm font-medium mb-1.5 block"
               >
                 Name
               </Label>
@@ -115,7 +115,7 @@ export default function SignUpForm({
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="h-14 rounded-xxl md:text-lg px-4"
+                className="h-11 rounded-lg text-base px-3.5"
                 placeholder="Ayush Kumar Anand"
               />
               {field.state.meta.errors.map((error) => (
@@ -136,7 +136,7 @@ export default function SignUpForm({
             <div>
               <Label
                 htmlFor={field.name}
-                className="text-1xl font-medium mb-1 block"
+                className="text-sm font-medium mb-1.5 block"
               >
                 Email
               </Label>
@@ -147,7 +147,7 @@ export default function SignUpForm({
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="h-14 rounded-xxl md:text-lg px-4"
+                className="h-11 rounded-lg text-base px-3.5"
                 placeholder="you@example.com"
               />
               {field.state.meta.errors.map((error) => (
@@ -168,7 +168,7 @@ export default function SignUpForm({
             <div>
               <Label
                 htmlFor={field.name}
-                className="text-1xl font-medium mb-1 block"
+                className="text-sm font-medium mb-1.5 block"
               >
                 Password
               </Label>
@@ -179,7 +179,7 @@ export default function SignUpForm({
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="h-14 rounded-xxl md:text-lg px-4"
+                className="h-11 rounded-lg text-base px-3.5"
                 placeholder="••••••••"
               />
               {field.state.meta.errors.map((error) => (
@@ -200,7 +200,7 @@ export default function SignUpForm({
             <div>
               <Label
                 htmlFor={field.name}
-                className="text-1xl font-medium mb-1 block"
+                className="text-sm font-medium mb-1.5 block"
               >
                 Confirm Password
               </Label>
@@ -211,7 +211,7 @@ export default function SignUpForm({
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
-                className="h-14 rounded-lg md:text-lg px-4"
+                className="h-11 rounded-lg text-base px-3.5"
                 placeholder="••••••••"
               />
               {field.state.meta.errors.map((error) => (
@@ -227,7 +227,7 @@ export default function SignUpForm({
         </form.Field>
 
         {/* Remember Me + Submit */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 pt-4">
           {/* Remember me */}
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -238,7 +238,7 @@ export default function SignUpForm({
             />
             <Label
               htmlFor="remember"
-              className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
+              className="text-xs text-gray-700 dark:text-gray-300 cursor-pointer"
             >
               Remember me
             </Label>
@@ -249,7 +249,7 @@ export default function SignUpForm({
             {(state) => (
               <Button
                 type="submit"
-                className="h-14 w-full text-2xl font-bold rounded-xl transition"
+                className="h-11 w-full text-base font-semibold rounded-lg transition"
                 disabled={!state.canSubmit || state.isSubmitting}
               >
                 {state.isSubmitting ? "Creating..." : "Sign Up"}
