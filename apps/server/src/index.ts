@@ -11,7 +11,21 @@ app.use(logger());
 app.use(
 	"/*",
 	cors({
-		origin: process.env.CORS_ORIGIN || "",
+		origin: (origin) => {
+			// Allow requests from Tauri apps (tauri://localhost), local development, and configured origins
+			const allowedOrigins = [
+				"tauri://localhost",
+				"http://localhost:3001",
+				"http://127.0.0.1:3001",
+				process.env.CORS_ORIGIN,
+			].filter(Boolean);
+			
+			if (!origin || allowedOrigins.includes(origin)) {
+				return origin || "*";
+			}
+			
+			return allowedOrigins[0];
+		},
 		allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 		allowHeaders: ["Content-Type", "Authorization", "x-user-id"],
 		credentials: true,

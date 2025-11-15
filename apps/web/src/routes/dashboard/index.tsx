@@ -349,10 +349,10 @@ function RouteComponent() {
               <div>
                 <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 mb-1">
                   <UserIcon className="h-4 w-4" />
-                  <span>User ID</span>
+                  <span>Owner</span>
                 </div>
-                <p className="text-sm font-mono truncate">
-                  {selectedFile.userId}
+                <p className="text-lg font-medium">
+                  {session.data?.user?.name || session.data?.user?.email || "Unknown"}
                 </p>
               </div>
 

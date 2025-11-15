@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import Dither from "@/components/Dither";
 import { ModeToggle } from "@/components/mode-toggle";
+import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/login")({
 	component: RouteComponent,
@@ -11,6 +12,23 @@ export const Route = createFileRoute("/login")({
 
 function RouteComponent() {
 	const [showSignIn, setShowSignIn] = useState(false);
+	const navigate = useNavigate();
+
+	useEffect(() => {
+		const checkSession = async () => {
+			try {
+				const session = await authClient.getSession();
+				if (session.data) {
+					navigate({ to: "/dashboard" });
+				}
+			} catch (error) {
+				console.error("Session check error:", error);
+				// Continue to login page if session check fails
+			}
+		};
+		
+		checkSession();
+	}, [navigate]);
 
 	return (
 		<div className="relative flex h-screen w-full overflow-hidden bg-black text-black dark:text-white">

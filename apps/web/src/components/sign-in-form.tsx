@@ -27,30 +27,32 @@ export default function SignInForm({
 	  remember: false,
     },
     onSubmit: async ({ value }) => {
-      await authClient.signIn.email(
-        {
-          email: value.email,
-          password: value.password,
-        },
-        {
-          onSuccess: () => {
-            navigate({
-              to: "/dashboard",
-            });
-            toast.success("Sign in successful");
+      console.log("🔐 Attempting sign in with:", { email: value.email });
+      
+      try {
+        await authClient.signIn.email(
+          {
+            email: value.email,
+            password: value.password,
           },
-          onError: (error) => {
-            toast.error(error.error.message || error.error.statusText);
-          },
-        }
-      );
-    },
-    validators: {
-      onSubmit: z.object({
-        email: z.string().email("Invalid email address"),
-        password: z.string().min(8, "Password must be at least 8 characters"),
-        remember: z.boolean(),
-      }),
+          {
+            onSuccess: () => {
+              console.log("✅ Sign in successful");
+              navigate({
+                to: "/dashboard",
+              });
+              toast.success("Sign in successful");
+            },
+            onError: (error) => {
+              console.error("❌ Sign in error:", error);
+              toast.error(error.error.message || error.error.statusText || "Sign in failed");
+            },
+          }
+        );
+      } catch (error) {
+        console.error("❌ Sign in exception:", error);
+        toast.error("Failed to sign in. Please check if the server is running.");
+      }
     },
   });
 
@@ -90,6 +92,10 @@ export default function SignInForm({
         onSubmit={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          console.log("📝 Form submitted, values:", {
+            email: form.state.values.email,
+            password: form.state.values.password ? "***" : "(empty)",
+          });
           form.handleSubmit();
         }}
         className="space-y-4 w-full max-w-md mx-auto px-1 my-auto"
