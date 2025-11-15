@@ -33,7 +33,7 @@ export default function LayoutShell({ userName = "User" }: { userName?: string }
   return (
     <>
       {/* FIXED SIDEBAR */}
-      <div className="fixed left-6 top-24 bottom-6 w-64 
+      <div className="fixed left-0 top-24 bottom-6 w-64 
         bg-white dark:bg-black 
         border border-gray-300 dark:border-gray-800 
         rounded-lg shadow-xl flex flex-col overflow-hidden z-50"
