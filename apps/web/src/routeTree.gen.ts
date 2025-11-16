@@ -13,7 +13,12 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as DashboardTrashBinRouteImport } from './routes/dashboard/trash-bin'
 import { Route as DashboardSharedRouteImport } from './routes/dashboard/shared'
+import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
+import { Route as DashboardRequestsRouteImport } from './routes/dashboard/requests'
+import { Route as DashboardMyFilesRouteImport } from './routes/dashboard/my-files'
+import { Route as DashboardHelpGuideRouteImport } from './routes/dashboard/help-guide'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -35,9 +40,34 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardTrashBinRoute = DashboardTrashBinRouteImport.update({
+  id: '/trash-bin',
+  path: '/trash-bin',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardSharedRoute = DashboardSharedRouteImport.update({
   id: '/shared',
   path: '/shared',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardRequestsRoute = DashboardRequestsRouteImport.update({
+  id: '/requests',
+  path: '/requests',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardMyFilesRoute = DashboardMyFilesRouteImport.update({
+  id: '/my-files',
+  path: '/my-files',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardHelpGuideRoute = DashboardHelpGuideRouteImport.update({
+  id: '/help-guide',
+  path: '/help-guide',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 
@@ -45,13 +75,23 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/dashboard/help-guide': typeof DashboardHelpGuideRoute
+  '/dashboard/my-files': typeof DashboardMyFilesRoute
+  '/dashboard/requests': typeof DashboardRequestsRoute
+  '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/shared': typeof DashboardSharedRoute
+  '/dashboard/trash-bin': typeof DashboardTrashBinRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/dashboard/help-guide': typeof DashboardHelpGuideRoute
+  '/dashboard/my-files': typeof DashboardMyFilesRoute
+  '/dashboard/requests': typeof DashboardRequestsRoute
+  '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/shared': typeof DashboardSharedRoute
+  '/dashboard/trash-bin': typeof DashboardTrashBinRoute
   '/dashboard': typeof DashboardIndexRoute
 }
 export interface FileRoutesById {
@@ -59,20 +99,49 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/dashboard/help-guide': typeof DashboardHelpGuideRoute
+  '/dashboard/my-files': typeof DashboardMyFilesRoute
+  '/dashboard/requests': typeof DashboardRequestsRoute
+  '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/shared': typeof DashboardSharedRoute
+  '/dashboard/trash-bin': typeof DashboardTrashBinRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/login' | '/dashboard/shared' | '/dashboard/'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/dashboard/help-guide'
+    | '/dashboard/my-files'
+    | '/dashboard/requests'
+    | '/dashboard/settings'
+    | '/dashboard/shared'
+    | '/dashboard/trash-bin'
+    | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/dashboard/shared' | '/dashboard'
+  to:
+    | '/'
+    | '/login'
+    | '/dashboard/help-guide'
+    | '/dashboard/my-files'
+    | '/dashboard/requests'
+    | '/dashboard/settings'
+    | '/dashboard/shared'
+    | '/dashboard/trash-bin'
+    | '/dashboard'
   id:
     | '__root__'
     | '/'
     | '/dashboard'
     | '/login'
+    | '/dashboard/help-guide'
+    | '/dashboard/my-files'
+    | '/dashboard/requests'
+    | '/dashboard/settings'
     | '/dashboard/shared'
+    | '/dashboard/trash-bin'
     | '/dashboard/'
   fileRoutesById: FileRoutesById
 }
@@ -112,6 +181,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/trash-bin': {
+      id: '/dashboard/trash-bin'
+      path: '/trash-bin'
+      fullPath: '/dashboard/trash-bin'
+      preLoaderRoute: typeof DashboardTrashBinRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/shared': {
       id: '/dashboard/shared'
       path: '/shared'
@@ -119,16 +195,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardSharedRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/settings': {
+      id: '/dashboard/settings'
+      path: '/settings'
+      fullPath: '/dashboard/settings'
+      preLoaderRoute: typeof DashboardSettingsRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/requests': {
+      id: '/dashboard/requests'
+      path: '/requests'
+      fullPath: '/dashboard/requests'
+      preLoaderRoute: typeof DashboardRequestsRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/my-files': {
+      id: '/dashboard/my-files'
+      path: '/my-files'
+      fullPath: '/dashboard/my-files'
+      preLoaderRoute: typeof DashboardMyFilesRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/help-guide': {
+      id: '/dashboard/help-guide'
+      path: '/help-guide'
+      fullPath: '/dashboard/help-guide'
+      preLoaderRoute: typeof DashboardHelpGuideRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
   }
 }
 
 interface DashboardRouteRouteChildren {
+  DashboardHelpGuideRoute: typeof DashboardHelpGuideRoute
+  DashboardMyFilesRoute: typeof DashboardMyFilesRoute
+  DashboardRequestsRoute: typeof DashboardRequestsRoute
+  DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardSharedRoute: typeof DashboardSharedRoute
+  DashboardTrashBinRoute: typeof DashboardTrashBinRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
+  DashboardHelpGuideRoute: DashboardHelpGuideRoute,
+  DashboardMyFilesRoute: DashboardMyFilesRoute,
+  DashboardRequestsRoute: DashboardRequestsRoute,
+  DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardSharedRoute: DashboardSharedRoute,
+  DashboardTrashBinRoute: DashboardTrashBinRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 }
 
