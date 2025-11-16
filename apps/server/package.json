@@ -10,18 +10,23 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "hono": "^4.8.2",
+    "@aws-sdk/client-s3": "^3.932.0",
+    "@aws-sdk/s3-request-presigner": "^3.932.0",
     "@hono/node-server": "^1.14.4",
+    "@krypt-vault/auth": "workspace:*",
+    "@krypt-vault/db": "workspace:*",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
-    "zod": "catalog:",
-    "@krypt-vault/auth": "workspace:*",
-    "@krypt-vault/db": "workspace:*"
+    "hono": "^4.8.2",
+    "libsodium-wrappers": "^0.7.15",
+    "uuid": "^13.0.0",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "typescript": "catalog:",
-    "tsx": "^4.19.2",
+    "@types/libsodium-wrappers": "^0.7.14",
     "@types/node": "catalog:",
-    "tsdown": "catalog:"
+    "tsdown": "catalog:",
+    "tsx": "^4.19.2",
+    "typescript": "catalog:"
   }
 }

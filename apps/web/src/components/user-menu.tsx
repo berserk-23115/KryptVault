@@ -11,6 +11,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
 import { Link } from "@tanstack/react-router";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 export default function UserMenu() {
 	const navigate = useNavigate();
@@ -31,7 +32,13 @@ export default function UserMenu() {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="outline">{session.user?.name || session.user?.email || "User"}</Button>
+				<Button variant="ghost" className="gap-2">
+					<Avatar className="h-6 w-6">
+						<AvatarImage src="/profile.png" alt={session.user?.name || "User"} />
+						<AvatarFallback>{(session.user?.name || session.user?.email || "U").charAt(0).toUpperCase()}</AvatarFallback>
+					</Avatar>
+					{session.user?.name || session.user?.email || "User"}
+				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent className="bg-card">
 				<DropdownMenuLabel>My Account</DropdownMenuLabel>
