@@ -2,18 +2,21 @@ const API_BASE_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 
 export interface FileMetadata {
   id: string;
+  fileId?: string; // Server returns fileId from join
   userId: string;
   originalFilename: string;
   mimeType?: string;
   fileSize: number;
   s3Key: string;
   s3Bucket: string;
-  wrappedDek: string;
+  wrappedDek: string; // From file_key table
   nonce: string;
   createdAt: Date;
   updatedAt: Date;
   description?: string;
   tags?: string[];
+  folderId?: string;
+  isOwner?: boolean; // Whether current user owns the file
 }
 
 export interface UploadInitResponse {

@@ -13,6 +13,15 @@ use std::path::Path;
 const NONCE_SIZE: usize = 24; // XChaCha20 uses 192-bit nonces
 const KEY_SIZE: usize = 32; // 256-bit key
 
+/// User keypairs for E2EE
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserKeypair {
+    pub x25519_public_key: String,  // Base64
+    pub x25519_private_key: String, // Base64 - NEVER send to server
+    pub ed25519_public_key: String,  // Base64
+    pub ed25519_private_key: String, // Base64 - NEVER send to server
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EncryptionResult {
     pub encrypted_file_path: String,
@@ -203,6 +212,120 @@ pub fn generate_server_keypair() -> Result<(String, String)> {
         base64::encode(pk.as_ref()),
         base64::encode(sk.as_ref()),
     ))
+}
+
+/// Generate user keypairs for E2EE sharing
+/// Returns both X25519 (encryption) and Ed25519 (signing) keypairs
+pub fn generate_user_keypair() -> Result<UserKeypair> {
+    sodiumoxide::init().map_err(|_| anyhow::anyhow!("Failed to initialize sodiumoxide"))?;
+    
+    // Generate X25519 keypair for encryption (sealed boxes)
+    let (x25519_pk, x25519_sk) = sodiumoxide::crypto::box_::gen_keypair();
+    
+    // Generate Ed25519 keypair for signatures/identity
+    let (ed25519_pk, ed25519_sk) = sodiumoxide::crypto::sign::gen_keypair();
+    
+    Ok(UserKeypair {
+        x25519_public_key: base64::encode(x25519_pk.as_ref()),
+        x25519_private_key: base64::encode(x25519_sk.as_ref()),
+        ed25519_public_key: base64::encode(ed25519_pk.as_ref()),
+        ed25519_private_key: base64::encode(ed25519_sk.as_ref()),
+    })
+}
+
+/// Wrap DEK with recipient's X25519 public key (sealed box)
+/// This is used for sharing - recipient can unwrap with their private key
+pub fn wrap_dek_for_recipient(dek: &[u8; KEY_SIZE], recipient_public_key: &str) -> Result<String> {
+    sodiumoxide::init().map_err(|_| anyhow::anyhow!("Failed to initialize sodiumoxide"))?;
+    
+    let pk_bytes = base64::decode(recipient_public_key)
+        .context("Failed to decode recipient public key")?;
+    
+    let public_key = sodiumoxide::crypto::box_::PublicKey::from_slice(&pk_bytes)
+        .context("Invalid recipient public key")?;
+    
+    // Seal the DEK using recipient's public key
+    let sealed = sealedbox::seal(dek, &public_key);
+    
+    Ok(base64::encode(&sealed))
+}
+
+/// Unwrap DEK using user's X25519 keypair (sealed box)
+/// This is used to decrypt a DEK that was wrapped for this user
+pub fn unwrap_dek_for_user(
+    wrapped_dek: &str,
+    user_public_key: &str,
+    user_private_key: &str,
+) -> Result<[u8; KEY_SIZE]> {
+    sodiumoxide::init().map_err(|_| anyhow::anyhow!("Failed to initialize sodiumoxide"))?;
+    
+    let pk_bytes = base64::decode(user_public_key)
+        .context("Failed to decode user public key")?;
+    let sk_bytes = base64::decode(user_private_key)
+        .context("Failed to decode user private key")?;
+    
+    let public_key = sodiumoxide::crypto::box_::PublicKey::from_slice(&pk_bytes)
+        .context("Invalid user public key")?;
+    let secret_key = sodiumoxide::crypto::box_::SecretKey::from_slice(&sk_bytes)
+        .context("Invalid user private key")?;
+    
+    let sealed = base64::decode(wrapped_dek)
+        .context("Failed to decode wrapped DEK")?;
+    
+    // Unseal the DEK
+    let dek_vec = sealedbox::open(&sealed, &public_key, &secret_key)
+        .map_err(|_| anyhow::anyhow!("Failed to unseal DEK"))?;
+    
+    if dek_vec.len() != KEY_SIZE {
+        return Err(anyhow::anyhow!("Invalid DEK size"));
+    }
+    
+    let mut dek = [0u8; KEY_SIZE];
+    dek.copy_from_slice(&dek_vec);
+    Ok(dek)
+}
+
+/// Encrypt data with a key (for wrapping DEKs with folder keys)
+/// Returns (ciphertext, nonce) both base64 encoded
+pub fn encrypt_with_key(data: &[u8], key: &[u8; KEY_SIZE]) -> Result<(String, String)> {
+    let cipher = XChaCha20Poly1305::new(key.into());
+    let nonce_bytes = generate_nonce();
+    let nonce = XNonce::from_slice(&nonce_bytes);
+    
+    let ciphertext = cipher
+        .encrypt(nonce, data)
+        .map_err(|e| anyhow::anyhow!("Encryption failed: {}", e))?;
+    
+    Ok((
+        base64::encode(&ciphertext),
+        base64::encode(&nonce_bytes),
+    ))
+}
+
+/// Decrypt data with a key (for unwrapping DEKs with folder keys)
+pub fn decrypt_with_key(
+    ciphertext_b64: &str,
+    nonce_b64: &str,
+    key: &[u8; KEY_SIZE],
+) -> Result<Vec<u8>> {
+    let cipher = XChaCha20Poly1305::new(key.into());
+    
+    let ciphertext = base64::decode(ciphertext_b64)
+        .context("Failed to decode ciphertext")?;
+    let nonce_bytes = base64::decode(nonce_b64)
+        .context("Failed to decode nonce")?;
+    
+    if nonce_bytes.len() != NONCE_SIZE {
+        return Err(anyhow::anyhow!("Invalid nonce size"));
+    }
+    
+    let nonce = XNonce::from_slice(&nonce_bytes);
+    
+    let plaintext = cipher
+        .decrypt(nonce, ciphertext.as_ref())
+        .map_err(|e| anyhow::anyhow!("Decryption failed: {}", e))?;
+    
+    Ok(plaintext)
 }
 
 #[cfg(test)]

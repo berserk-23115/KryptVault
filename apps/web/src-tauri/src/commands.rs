@@ -1,4 +1,8 @@
-use crate::crypto::{encrypt_file, decrypt_file, generate_server_keypair, EncryptionResult, DecryptionParams};
+use crate::crypto::{
+    encrypt_file, decrypt_file, generate_server_keypair, generate_user_keypair,
+    wrap_dek_for_recipient, unwrap_dek_for_user, encrypt_with_key, decrypt_with_key,
+    EncryptionResult, DecryptionParams, UserKeypair,
+};
 use crate::s3::{upload_to_s3, S3UploadResult};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -166,4 +170,132 @@ pub fn decrypt_file_only(
 ) -> Result<String, String> {
     decrypt_file(params, &output_path, &server_public_key)
         .map_err(|e| format!("Decryption failed: {}", e))
+}
+
+// ============================================================================
+// USER KEYPAIR MANAGEMENT
+// ============================================================================
+
+/// Generate new user keypairs (X25519 + Ed25519)
+/// Private keys should be stored in OS keychain, public keys sent to server
+#[tauri::command]
+pub fn generate_user_keypair_command() -> Result<UserKeypair, String> {
+    generate_user_keypair()
+        .map_err(|e| format!("Failed to generate user keypair: {}", e))
+}
+
+/// Wrap a DEK for sharing with another user
+/// Takes the DEK (in base64), unwraps it with current user's private key,
+/// then re-wraps it with recipient's public key
+#[tauri::command]
+pub fn share_file_key(
+    wrapped_dek: String,
+    user_public_key: String,
+    user_private_key: String,
+    recipient_public_key: String,
+) -> Result<String, String> {
+    // First, unwrap the DEK using the current user's keypair
+    let dek = unwrap_dek_for_user(&wrapped_dek, &user_public_key, &user_private_key)
+        .map_err(|e| format!("Failed to unwrap DEK: {}", e))?;
+    
+    // Then, wrap it for the recipient
+    wrap_dek_for_recipient(&dek, &recipient_public_key)
+        .map_err(|e| format!("Failed to wrap DEK for recipient: {}", e))
+}
+
+/// Unwrap a DEK that was shared with the current user
+#[tauri::command]
+pub fn unwrap_shared_dek(
+    wrapped_dek: String,
+    user_public_key: String,
+    user_private_key: String,
+) -> Result<String, String> {
+    let dek = unwrap_dek_for_user(&wrapped_dek, &user_public_key, &user_private_key)
+        .map_err(|e| format!("Failed to unwrap DEK: {}", e))?;
+    
+    Ok(base64::encode(&dek))
+}
+
+// ============================================================================
+// FOLDER KEY MANAGEMENT
+// ============================================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WrapDekWithFolderKeyParams {
+    pub dek_b64: String,           // File's DEK in base64
+    pub folder_key_b64: String,    // Folder key in base64
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WrapDekWithFolderKeyResult {
+    pub wrapped_dek: String,       // Base64
+    pub wrapping_nonce: String,    // Base64
+}
+
+/// Wrap a file's DEK with a folder key (symmetric encryption)
+#[tauri::command]
+pub fn wrap_dek_with_folder_key(
+    params: WrapDekWithFolderKeyParams,
+) -> Result<WrapDekWithFolderKeyResult, String> {
+    // Decode the DEK and folder key
+    let dek = base64::decode(&params.dek_b64)
+        .map_err(|e| format!("Failed to decode DEK: {}", e))?;
+    
+    let folder_key_vec = base64::decode(&params.folder_key_b64)
+        .map_err(|e| format!("Failed to decode folder key: {}", e))?;
+    
+    if folder_key_vec.len() != 32 {
+        return Err("Invalid folder key size".to_string());
+    }
+    
+    let mut folder_key = [0u8; 32];
+    folder_key.copy_from_slice(&folder_key_vec);
+    
+    // Encrypt DEK with folder key
+    let (wrapped_dek, wrapping_nonce) = encrypt_with_key(&dek, &folder_key)
+        .map_err(|e| format!("Failed to wrap DEK: {}", e))?;
+    
+    Ok(WrapDekWithFolderKeyResult {
+        wrapped_dek,
+        wrapping_nonce,
+    })
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UnwrapDekWithFolderKeyParams {
+    pub wrapped_dek: String,       // Base64
+    pub wrapping_nonce: String,    // Base64
+    pub folder_key_b64: String,    // Folder key in base64
+}
+
+/// Unwrap a file's DEK using a folder key
+#[tauri::command]
+pub fn unwrap_dek_with_folder_key(
+    params: UnwrapDekWithFolderKeyParams,
+) -> Result<String, String> {
+    // Decode folder key
+    let folder_key_vec = base64::decode(&params.folder_key_b64)
+        .map_err(|e| format!("Failed to decode folder key: {}", e))?;
+    
+    if folder_key_vec.len() != 32 {
+        return Err("Invalid folder key size".to_string());
+    }
+    
+    let mut folder_key = [0u8; 32];
+    folder_key.copy_from_slice(&folder_key_vec);
+    
+    // Decrypt DEK with folder key
+    let dek = decrypt_with_key(&params.wrapped_dek, &params.wrapping_nonce, &folder_key)
+        .map_err(|e| format!("Failed to unwrap DEK: {}", e))?;
+    
+    Ok(base64::encode(&dek))
+}
+
+/// Generate a random folder key (256-bit)
+#[tauri::command]
+pub fn generate_folder_key() -> Result<String, String> {
+    use rand::RngCore;
+    let mut folder_key = [0u8; 32];
+    rand::rngs::OsRng.fill_bytes(&mut folder_key);
+    Ok(base64::encode(&folder_key))
 }

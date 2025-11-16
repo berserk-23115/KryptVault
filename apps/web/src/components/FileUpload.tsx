@@ -53,11 +53,26 @@ export function FileUpload() {
       console.log("✅ Upload initialized:", initResponse);
       setProgress(20);
 
-      // Step 4: Encrypt and upload using Tauri
+      // Step 3.5: Get user's public key for wrapping DEK
+      const userKeysStr = localStorage.getItem("userKeypair");
+      if (!userKeysStr) {
+        throw new Error("You need to set up encryption keys first. Please generate your keypair.");
+      }
+
+      const userKeys = JSON.parse(userKeysStr);
+      const userPublicKey = userKeys.x25519PublicKey || userKeys.x25519_public_key;
+      
+      if (!userPublicKey) {
+        throw new Error("Invalid keypair data. Please regenerate your encryption keys.");
+      }
+
+      console.log("🔑 Using user's public key for DEK wrapping");
+
+      // Step 4: Encrypt and upload using Tauri (with USER's public key, not server's)
       console.log("🔐 Encrypting and uploading file...");
       const uploadResponse = await encryptAndUploadFile({
         file_path: filePath,
-        server_public_key: initResponse.serverPublicKey,
+        server_public_key: userPublicKey, // Use user's key instead of server's!
         presigned_url: initResponse.presignedUrl,
         file_key: initResponse.s3Key,
       });

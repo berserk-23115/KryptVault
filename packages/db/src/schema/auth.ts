@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
 	id: text("id").primaryKey(),
@@ -8,6 +8,25 @@ export const user = pgTable("user", {
 	image: text("image"),
 	createdAt: timestamp("created_at").notNull(),
 	updatedAt: timestamp("updated_at").notNull(),
+});
+
+// User keypairs for E2EE sharing
+// Private keys are NEVER stored on server - only on client (Tauri keychain)
+export const userKeypair = pgTable("user_keypair", {
+	id: text("id").primaryKey(),
+	userId: text("user_id")
+		.notNull()
+		.unique()
+		.references(() => user.id, { onDelete: "cascade" }),
+	
+	// X25519 keypair for encryption (sealed boxes)
+	x25519PublicKey: text("x25519_public_key").notNull(),
+	
+	// Ed25519 keypair for signatures/identity
+	ed25519PublicKey: text("ed25519_public_key").notNull(),
+	
+	createdAt: timestamp("created_at").notNull().defaultNow(),
+	updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const session = pgTable("session", {

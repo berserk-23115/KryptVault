@@ -16,10 +16,13 @@ import {
   HardDriveIcon,
   UserIcon,
   EyeIcon,
-  XIcon
+  XIcon,
+  Share2Icon
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ShareFileDialog } from "@/components/ShareFileDialog";
+import { KeypairSetupDialog, useKeypairCheck } from "@/components/KeypairSetupDialog";
 
 export const Route = createFileRoute("/dashboard/")({
   component: RouteComponent,
@@ -38,12 +41,27 @@ function RouteComponent() {
   const [loading, setLoading] = React.useState(true);
   const [selectedFile, setSelectedFile] = React.useState<FileMetadata | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const { hasKeypair, checking: checkingKeypair, recheckKeypair } = useKeypairCheck();
+  const [showKeypairSetup, setShowKeypairSetup] = React.useState(false);
+
+  // Show keypair setup dialog if user doesn't have one
+  React.useEffect(() => {
+    if (!checkingKeypair && hasKeypair === false) {
+      setShowKeypairSetup(true);
+    }
+  }, [hasKeypair, checkingKeypair]);
 
   const loadFiles = async () => {
     try {
       setLoading(true);
       const fileList = await filesApi.listFiles();
-      setFiles(fileList);
+      // Normalize fileId to id for compatibility
+      const normalizedFiles = fileList.map(file => ({
+        ...file,
+        id: file.fileId || file.id,
+      }));
+      setFiles(normalizedFiles);
     } catch (err) {
       console.error("Failed to load files:", err);
       setError(err instanceof Error ? err.message : "Failed to load files");
@@ -389,6 +407,24 @@ function RouteComponent() {
             {/* Actions - Fixed at Bottom */}
             <div className="space-y-2 pt-6 border-t border-border">
               <Button
+                onClick={() => {
+                  if (!hasKeypair) {
+                    toast.error("Please set up encryption first");
+                    setShowKeypairSetup(true);
+                    return;
+                  }
+                  setShareDialogOpen(true);
+                }}
+                className="w-full"
+                variant="outline"
+                disabled={!selectedFile.wrappedDek}
+                title={!selectedFile.wrappedDek ? "This file cannot be shared (legacy format)" : "Share this file"}
+              >
+                <Share2Icon className="h-4 w-4 mr-2" />
+                Share File
+              </Button>
+              
+              <Button
                 onClick={() => handlePreview(selectedFile)}
                 className="w-full"
                 variant="outline"
@@ -418,6 +454,30 @@ function RouteComponent() {
           </div>
         </aside>
       )}
+
+      {/* Share Dialog */}
+      {selectedFile && (
+        <ShareFileDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          fileId={selectedFile.id}
+          fileName={selectedFile.originalFilename}
+          wrappedDek={selectedFile.wrappedDek || ""}
+          onShareComplete={() => {
+            loadFiles();
+          }}
+        />
+      )}
+
+      {/* Keypair Setup Dialog */}
+      <KeypairSetupDialog
+        open={showKeypairSetup}
+        onComplete={() => {
+          setShowKeypairSetup(false);
+          recheckKeypair();
+          toast.success("You can now share files securely!");
+        }}
+      />
     </main>
   );
 }

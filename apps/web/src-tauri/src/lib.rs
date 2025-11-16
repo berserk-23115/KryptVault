@@ -2,7 +2,12 @@ mod crypto;
 mod s3;
 mod commands;
 
-use commands::{AppState, encrypt_and_upload_file, download_and_decrypt_file, generate_keypair, encrypt_file_only, decrypt_file_only};
+use commands::{
+    AppState, encrypt_and_upload_file, download_and_decrypt_file, generate_keypair,
+    encrypt_file_only, decrypt_file_only, generate_user_keypair_command, share_file_key,
+    unwrap_shared_dek, wrap_dek_with_folder_key, unwrap_dek_with_folder_key,
+    generate_folder_key,
+};
 use std::sync::Mutex;
 use tauri::Manager;
 
@@ -36,7 +41,13 @@ pub fn run() {
       download_and_decrypt_file,
       generate_keypair,
       encrypt_file_only,
-      decrypt_file_only
+      decrypt_file_only,
+      generate_user_keypair_command,
+      share_file_key,
+      unwrap_shared_dek,
+      wrap_dek_with_folder_key,
+      unwrap_dek_with_folder_key,
+      generate_folder_key
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

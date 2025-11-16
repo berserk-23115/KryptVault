@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { db, file } from "@krypt-vault/db";
-import { eq, and, desc } from "@krypt-vault/db";
+import { db, file, fileKey } from "@krypt-vault/db";
+import { eq, and, desc, or } from "@krypt-vault/db";
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
@@ -60,13 +60,14 @@ const uploadRequestSchema = z.object({
 const uploadCompleteSchema = z.object({
 	fileId: z.string(),
 	s3Key: z.string(),
-	wrappedDek: z.string(),
+	wrappedDek: z.string(), // DEK wrapped with uploader's X25519 public key
 	nonce: z.string(),
 	originalFilename: z.string(),
 	fileSize: z.number(),
 	mimeType: z.string().optional(),
 	description: z.string().optional(),
 	tags: z.array(z.string()).optional(),
+	folderId: z.string().optional(), // Optional folder assignment
 });
 
 const downloadRequestSchema = z.object({
@@ -171,21 +172,32 @@ app.post("/upload/complete", async (c) => {
 		
 		console.log("💾 Saving file metadata to database...");
 		
-		// Store file metadata in database
+		// Store file metadata in database (without wrappedDek - deprecated)
 		await db.insert(file).values({
 			id: data.fileId,
 			userId,
+			folderId: data.folderId,
 			originalFilename: data.originalFilename,
 			mimeType: data.mimeType || "application/octet-stream",
 			fileSize: data.fileSize,
 			s3Key: data.s3Key,
 			s3Bucket: BUCKET_NAME,
-			wrappedDek: data.wrappedDek,
+			wrappedDek: null, // DEPRECATED - use fileKey table
 			nonce: data.nonce,
 			description: data.description,
 			tags: data.tags,
 			createdAt: new Date(),
 			updatedAt: new Date(),
+		}).returning();
+		
+		// Store wrapped DEK in fileKey table for the uploader
+		await db.insert(fileKey).values({
+			id: crypto.randomUUID(),
+			fileId: data.fileId,
+			recipientUserId: userId,
+			wrappedDek: data.wrappedDek,
+			sharedBy: userId, // Owner shares with themselves
+			createdAt: new Date(),
 		});
 		
 		console.log("✅ File metadata saved successfully");
@@ -203,7 +215,7 @@ app.post("/upload/complete", async (c) => {
 	}
 });
 
-// GET /api/files or /api/files/ - List user's files
+// GET /api/files or /api/files/ - List user's files (owned + shared)
 // IMPORTANT: This must come BEFORE the /:fileId route to avoid conflicts
 app.get("/", async (c) => {
 	try {
@@ -211,10 +223,28 @@ app.get("/", async (c) => {
 		
 		console.log("📋 Listing files for user:", userId);
 		
+		// Get files where user has a file key (owned or shared)
 		const files = await db
-			.select()
-			.from(file)
-			.where(eq(file.userId, userId))
+			.select({
+				fileId: file.id,
+				userId: file.userId,
+				originalFilename: file.originalFilename,
+				mimeType: file.mimeType,
+				fileSize: file.fileSize,
+				s3Key: file.s3Key,
+				s3Bucket: file.s3Bucket,
+				nonce: file.nonce,
+				createdAt: file.createdAt,
+				updatedAt: file.updatedAt,
+				description: file.description,
+				tags: file.tags,
+				folderId: file.folderId,
+				wrappedDek: fileKey.wrappedDek,
+				isOwner: eq(file.userId, userId),
+			})
+			.from(fileKey)
+			.innerJoin(file, eq(fileKey.fileId, file.id))
+			.where(eq(fileKey.recipientUserId, userId))
 			.orderBy(desc(file.createdAt));
 		
 		console.log(`✅ Found ${files.length} files`);
@@ -255,14 +285,31 @@ app.post("/:fileId/download", async (c) => {
 		const fileId = c.req.param("fileId");
 		const userId = (c as any).get("userId") as string;
 		
+		// Get file metadata
 		const [fileRecord] = await db
 			.select()
 			.from(file)
-			.where(and(eq(file.id, fileId), eq(file.userId, userId)))
+			.where(eq(file.id, fileId))
 			.limit(1);
 		
 		if (!fileRecord) {
 			return c.json({ error: "File not found" }, 404);
+		}
+		
+		// Check if user has access (owner or has a file key)
+		const [fileKeyRecord] = await db
+			.select()
+			.from(fileKey)
+			.where(
+				and(
+					eq(fileKey.fileId, fileId),
+					eq(fileKey.recipientUserId, userId)
+				)
+			)
+			.limit(1);
+		
+		if (!fileKeyRecord) {
+			return c.json({ error: "Access denied" }, 403);
 		}
 		
 		// Generate presigned URL for download (valid for 15 minutes)
@@ -277,12 +324,10 @@ app.post("/:fileId/download", async (c) => {
 		
 		return c.json({
 			downloadUrl: presignedUrl,
-			wrappedDek: fileRecord.wrappedDek,
+			wrappedDek: fileKeyRecord.wrappedDek, // User-specific wrapped DEK
 			nonce: fileRecord.nonce,
 			originalFilename: fileRecord.originalFilename,
 			mimeType: fileRecord.mimeType,
-			serverPublicKey: SERVER_PUBLIC_KEY,
-			serverPrivateKey: SERVER_PRIVATE_KEY, // ⚠️ SECURITY: In production, decrypt on server side!
 		});
 	} catch (error) {
 		console.error("Download error:", error);
