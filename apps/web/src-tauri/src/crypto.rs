@@ -202,6 +202,58 @@ pub fn decrypt_file(
     Ok(output_path.to_string())
 }
 
+/// Decrypt a file using XChaCha20-Poly1305 with an already unwrapped DEK
+/// Used for shared files where the DEK has already been unwrapped
+pub fn decrypt_file_with_dek(
+    encrypted_file_path: &str,
+    dek_base64: &str,
+    nonce_base64: &str,
+    output_path: &str,
+) -> Result<String> {
+    // Decode the DEK
+    let dek_bytes = base64::decode(dek_base64)
+        .context("Failed to decode DEK")?;
+    
+    if dek_bytes.len() != KEY_SIZE {
+        return Err(anyhow::anyhow!("Invalid DEK size: expected {}, got {}", KEY_SIZE, dek_bytes.len()));
+    }
+    
+    let mut dek = [0u8; KEY_SIZE];
+    dek.copy_from_slice(&dek_bytes);
+    
+    // Decode nonce
+    let nonce_bytes = base64::decode(nonce_base64)
+        .context("Failed to decode nonce")?;
+    
+    if nonce_bytes.len() != NONCE_SIZE {
+        return Err(anyhow::anyhow!("Invalid nonce size"));
+    }
+    
+    // Create cipher
+    let cipher = XChaCha20Poly1305::new(&dek.into());
+    let nonce = XNonce::from_slice(&nonce_bytes);
+    
+    // Read encrypted file
+    let mut input_file = File::open(encrypted_file_path)
+        .context("Failed to open encrypted file")?;
+    let mut ciphertext = Vec::new();
+    input_file.read_to_end(&mut ciphertext)
+        .context("Failed to read encrypted file")?;
+    
+    // Decrypt the data
+    let plaintext = cipher
+        .decrypt(nonce, ciphertext.as_ref())
+        .map_err(|e| anyhow::anyhow!("Decryption failed: {}", e))?;
+    
+    // Write decrypted data to output file
+    let mut output_file = File::create(output_path)
+        .context("Failed to create output file")?;
+    output_file.write_all(&plaintext)
+        .context("Failed to write decrypted file")?;
+    
+    Ok(output_path.to_string())
+}
+
 /// Generate a new libsodium keypair for the server
 pub fn generate_server_keypair() -> Result<(String, String)> {
     sodiumoxide::init().map_err(|_| anyhow::anyhow!("Failed to initialize sodiumoxide"))?;

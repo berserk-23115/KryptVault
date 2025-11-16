@@ -1,5 +1,5 @@
 use crate::crypto::{
-    encrypt_file, decrypt_file, generate_server_keypair, generate_user_keypair,
+    encrypt_file, decrypt_file, decrypt_file_with_dek, generate_server_keypair, generate_user_keypair,
     wrap_dek_for_recipient, unwrap_dek_for_user, encrypt_with_key, decrypt_with_key,
     EncryptionResult, DecryptionParams, UserKeypair,
 };
@@ -216,6 +216,61 @@ pub fn unwrap_shared_dek(
     Ok(base64::encode(&dek))
 }
 
+/// Download and decrypt a shared file using an already-unwrapped DEK
+/// Used for files shared with the current user
+#[tauri::command]
+pub async fn download_and_decrypt_shared_file(
+    download_url: String,
+    dek_base64: String,
+    nonce: String,
+    output_path: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    // Get temp directory
+    let temp_dir = state.temp_dir.lock().unwrap().clone();
+    
+    // Generate unique filename for downloaded encrypted file
+    let file_id = uuid::Uuid::new_v4().to_string();
+    let encrypted_path = temp_dir.join(format!("{}.enc", file_id));
+    
+    // Download the encrypted file from S3
+    let client = reqwest::Client::new();
+    let response = client
+        .get(&download_url)
+        .send()
+        .await
+        .map_err(|e| format!("Download failed: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("Download failed with status: {}", response.status()));
+    }
+    
+    let encrypted_data = response
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read downloaded data: {}", e))?;
+    
+    // Save encrypted file temporarily
+    std::fs::write(&encrypted_path, encrypted_data)
+        .map_err(|e| format!("Failed to save encrypted file: {}", e))?;
+    
+    // Decrypt the file using the unwrapped DEK
+    let decrypted_path = decrypt_file_with_dek(
+        encrypted_path.to_str().unwrap(),
+        &dek_base64,
+        &nonce,
+        &output_path,
+    )
+    .map_err(|e| format!("Decryption failed: {}", e))?;
+    
+    // Clean up encrypted temp file
+    if let Err(e) = std::fs::remove_file(&encrypted_path) {
+        log::warn!("Failed to remove temp encrypted file: {}", e);
+    }
+    
+    Ok(decrypted_path)
+}
+
 // ============================================================================
 // FOLDER KEY MANAGEMENT
 // ============================================================================
@@ -298,4 +353,31 @@ pub fn generate_folder_key() -> Result<String, String> {
     let mut folder_key = [0u8; 32];
     rand::rngs::OsRng.fill_bytes(&mut folder_key);
     Ok(base64::encode(&folder_key))
+}
+
+/// Seal data with a recipient's public key (sealed box)
+#[tauri::command]
+pub fn seal_data(
+    data: String,
+    recipient_public_key: String,
+) -> Result<String, String> {
+    use sodiumoxide::crypto::sealedbox;
+    use sodiumoxide::crypto::box_::PublicKey;
+    
+    // Decode the data from base64
+    let data_bytes = base64::decode(&data)
+        .map_err(|e| format!("Failed to decode data: {}", e))?;
+    
+    // Decode recipient's public key
+    let pk_bytes = base64::decode(&recipient_public_key)
+        .map_err(|e| format!("Failed to decode public key: {}", e))?;
+    
+    let public_key = PublicKey::from_slice(&pk_bytes)
+        .ok_or_else(|| "Invalid public key".to_string())?;
+    
+    // Seal the data
+    let sealed = sealedbox::seal(&data_bytes, &public_key);
+    
+    // Return base64 encoded sealed box
+    Ok(base64::encode(&sealed))
 }

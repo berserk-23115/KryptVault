@@ -162,6 +162,23 @@ export async function unwrapSharedDek(
   });
 }
 
+/**
+ * Download and decrypt a shared file using an already-unwrapped DEK
+ */
+export async function downloadAndDecryptSharedFile(
+  downloadUrl: string,
+  dekBase64: string,
+  nonce: string,
+  outputPath: string
+): Promise<string> {
+  return await invoke<string>("download_and_decrypt_shared_file", {
+    downloadUrl,
+    dekBase64,
+    nonce,
+    outputPath,
+  });
+}
+
 // ============================================================================
 // FOLDER KEY MANAGEMENT
 // ============================================================================

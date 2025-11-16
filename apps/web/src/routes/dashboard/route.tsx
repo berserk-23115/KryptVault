@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
 import UserMenu from "@/components/user-menu";
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, Link, useRouterState } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -19,18 +19,23 @@ import { Separator } from "@/components/ui/separator";
 type SidebarItemProps = {
   icon: React.ComponentType<{ size?: number }>;
   label: string;
-  isActive?: boolean;
+  to: string;
 };
 
-function SidebarItem({ icon: Icon, label, isActive = false }: SidebarItemProps) {
+function SidebarItem({ icon: Icon, label, to }: SidebarItemProps) {
+  const router = useRouterState();
+  const isActive = router.location.pathname === to;
+
   return (
-    <Button
-      variant={isActive ? "default" : "ghost"}
-      className="w-full justify-start gap-3 px-3 py-2 h-9"
-    >
-      <Icon size={20} />
-      <span className="text-sm font-medium">{label}</span>
-    </Button>
+    <Link to={to} className="w-full">
+      <Button
+        variant={isActive ? "default" : "ghost"}
+        className="w-full justify-start gap-3 px-3 py-2 h-9"
+      >
+        <Icon size={20} />
+        <span className="text-sm font-medium">{label}</span>
+      </Button>
+    </Link>
   );
 }
 
@@ -96,19 +101,19 @@ function RouteComponent() {
                 Menu
               </h2>
               <div className="space-y-2">
-                <SidebarItem icon={Home} label="Dashboard" isActive />
-                <SidebarItem icon={Folder} label="My Files" />
-                <SidebarItem icon={Share2} label="Shared" />
-                <SidebarItem icon={FileQuestion} label="Requests" />
-                <SidebarItem icon={Trash2} label="Trash Bin" />
+                <SidebarItem icon={Home} label="Dashboard" to="/dashboard" />
+                <SidebarItem icon={Folder} label="My Files" to="/dashboard/my-files" />
+                <SidebarItem icon={Share2} label="Shared" to="/dashboard/shared" />
+                <SidebarItem icon={FileQuestion} label="Requests" to="/dashboard/requests" />
+                <SidebarItem icon={Trash2} label="Trash Bin" to="/dashboard/trash-bin" />
               </div>
             </div>
           </nav>
 
           {/* Bottom Menu */}
           <div className="border-t border-border p-5 space-y-2">
-            <SidebarItem icon={Settings} label="Settings" />
-            <SidebarItem icon={HelpCircle} label="Help & Guide" />
+            <SidebarItem icon={Settings} label="Settings" to="/dashboard/settings" />
+            <SidebarItem icon={HelpCircle} label="Help & Guide" to="/dashboard/help-guide" />
           </div>
         </aside>
 
