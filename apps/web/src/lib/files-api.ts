@@ -44,8 +44,6 @@ export interface DownloadResponse {
   nonce: string;
   originalFilename: string;
   mimeType?: string;
-  serverPublicKey: string;
-  serverPrivateKey: string;
 }
 
 class FilesApiClient {
