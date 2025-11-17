@@ -19,6 +19,7 @@ import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settin
 import { Route as DashboardRequestsRouteImport } from './routes/dashboard/requests'
 import { Route as DashboardMyFilesRouteImport } from './routes/dashboard/my-files'
 import { Route as DashboardHelpGuideRouteImport } from './routes/dashboard/help-guide'
+import { Route as DashboardFoldersFolderIdRouteImport } from './routes/dashboard/folders/$folderId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -70,6 +71,12 @@ const DashboardHelpGuideRoute = DashboardHelpGuideRouteImport.update({
   path: '/help-guide',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardFoldersFolderIdRoute =
+  DashboardFoldersFolderIdRouteImport.update({
+    id: '/folders/$folderId',
+    path: '/folders/$folderId',
+    getParentRoute: () => DashboardRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -82,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/shared': typeof DashboardSharedRoute
   '/dashboard/trash-bin': typeof DashboardTrashBinRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/dashboard/folders/$folderId': typeof DashboardFoldersFolderIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -93,6 +101,7 @@ export interface FileRoutesByTo {
   '/dashboard/shared': typeof DashboardSharedRoute
   '/dashboard/trash-bin': typeof DashboardTrashBinRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/dashboard/folders/$folderId': typeof DashboardFoldersFolderIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -106,6 +115,7 @@ export interface FileRoutesById {
   '/dashboard/shared': typeof DashboardSharedRoute
   '/dashboard/trash-bin': typeof DashboardTrashBinRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/dashboard/folders/$folderId': typeof DashboardFoldersFolderIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/dashboard/shared'
     | '/dashboard/trash-bin'
     | '/dashboard/'
+    | '/dashboard/folders/$folderId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/dashboard/shared'
     | '/dashboard/trash-bin'
     | '/dashboard'
+    | '/dashboard/folders/$folderId'
   id:
     | '__root__'
     | '/'
@@ -143,6 +155,7 @@ export interface FileRouteTypes {
     | '/dashboard/shared'
     | '/dashboard/trash-bin'
     | '/dashboard/'
+    | '/dashboard/folders/$folderId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -223,6 +236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardHelpGuideRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/folders/$folderId': {
+      id: '/dashboard/folders/$folderId'
+      path: '/folders/$folderId'
+      fullPath: '/dashboard/folders/$folderId'
+      preLoaderRoute: typeof DashboardFoldersFolderIdRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
   }
 }
 
@@ -234,6 +254,7 @@ interface DashboardRouteRouteChildren {
   DashboardSharedRoute: typeof DashboardSharedRoute
   DashboardTrashBinRoute: typeof DashboardTrashBinRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardFoldersFolderIdRoute: typeof DashboardFoldersFolderIdRoute
 }
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
@@ -244,6 +265,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardSharedRoute: DashboardSharedRoute,
   DashboardTrashBinRoute: DashboardTrashBinRoute,
   DashboardIndexRoute: DashboardIndexRoute,
+  DashboardFoldersFolderIdRoute: DashboardFoldersFolderIdRoute,
 }
 
 const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
