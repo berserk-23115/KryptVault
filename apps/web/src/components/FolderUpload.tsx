@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Loader2, FolderUp } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
@@ -17,16 +19,12 @@ export function FolderUpload() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [currentFile, setCurrentFile] = useState<string>("");
+  const [showFolderDialog, setShowFolderDialog] = useState(false);
+  const [folderName, setFolderName] = useState("New Folder");
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
 
   const handleSelectAndUpload = async () => {
-    let toastId: string | number | undefined;
-
     try {
-      setUploading(true);
-      setError(null);
-      setSuccess(null);
-      setProgress(5);
-
       // Step 1: Open file picker dialog for multiple files
       const selected = await open({
         multiple: true,
@@ -34,20 +32,35 @@ export function FolderUpload() {
       });
 
       if (!selected || (Array.isArray(selected) && selected.length === 0)) {
-        setUploading(false);
         return;
       }
 
       const filePaths = Array.isArray(selected) ? selected : [selected];
-      
-      // Get folder name from user
-      const folderName = prompt("Enter folder name:", "New Folder");
-      if (!folderName) {
-        setUploading(false);
+      setSelectedFiles(filePaths);
+      setFolderName("New Folder");
+      setShowFolderDialog(true);
+    } catch (err) {
+      console.error("File selection error:", err);
+      toast.error("Failed to select files");
+    }
+  };
+
+  const handleStartUpload = async () => {
+    let toastId: string | number | undefined;
+
+    try {
+      if (!folderName.trim()) {
+        toast.error("Please enter a folder name");
         return;
       }
 
-      console.log(`📁 Creating folder "${folderName}" with ${filePaths.length} files`);
+      setShowFolderDialog(false);
+      setUploading(true);
+      setError(null);
+      setSuccess(null);
+      setProgress(5);
+
+      console.log(`📁 Creating folder "${folderName}" with ${selectedFiles.length} files`);
       toastId = toast.loading(`Uploading folder: ${folderName}`, {
         description: "Preparing folder...",
       });
@@ -94,7 +107,7 @@ export function FolderUpload() {
 
       const createFolderRequest: CreateFolderRequest = {
         name: folderName,
-        description: `Uploaded folder with ${filePaths.length} file(s)`,
+        description: `Uploaded folder with ${selectedFiles.length} file(s)`,
         wrappedFolderKey: wrappedFolderKey,
       };
 
@@ -103,16 +116,16 @@ export function FolderUpload() {
       setProgress(25);
 
       // Step 6: Upload each file
-      const progressPerFile = 70 / filePaths.length;
+      const progressPerFile = 70 / selectedFiles.length;
       let completedFiles = 0;
 
-      for (const filePath of filePaths) {
+      for (const filePath of selectedFiles) {
         const filename = filePath.split("/").pop() || filePath.split("\\").pop() || "unknown";
 
         setCurrentFile(filename);
         toast.loading(`Uploading folder: ${folderName}`, {
           id: toastId,
-          description: `Uploading ${filename} (${completedFiles + 1}/${filePaths.length})...`,
+          description: `Uploading ${filename} (${completedFiles + 1}/${selectedFiles.length})...`,
         });
 
         console.log(`📄 Processing file: ${filename}`);
@@ -167,11 +180,11 @@ export function FolderUpload() {
       }
 
       setProgress(100);
-      setSuccess(`Successfully uploaded folder "${folderName}" with ${filePaths.length} file(s)!`);
+      setSuccess(`Successfully uploaded folder "${folderName}" with ${selectedFiles.length} file(s)!`);
       
       toast.success("Folder uploaded!", {
         id: toastId,
-        description: `${folderName} with ${filePaths.length} file(s) uploaded successfully`,
+        description: `${folderName} with ${selectedFiles.length} file(s) uploaded successfully`,
       });
 
       // Reload page after a short delay
@@ -201,57 +214,95 @@ export function FolderUpload() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FolderUp className="h-5 w-5" />
-          Folder Upload
-        </CardTitle>
-        <CardDescription>
-          Select multiple files to upload as a secure encrypted folder
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {success && (
-          <Alert className="border-green-500 text-green-700 dark:text-green-400">
-            <AlertDescription>{success}</AlertDescription>
-          </Alert>
-        )}
-
-        {uploading && (
-          <div className="space-y-2">
-            <Progress value={progress} className="w-full" />
-            <p className="text-sm text-muted-foreground text-center">
-              {currentFile ? `Uploading: ${currentFile}` : "Processing..."}
-            </p>
-          </div>
-        )}
-
-        <Button
-          onClick={handleSelectAndUpload}
-          disabled={uploading}
-          className="w-full"
-          size="lg"
-        >
-          {uploading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Uploading... {Math.round(progress)}%
-            </>
-          ) : (
-            <>
-              <FolderUp className="mr-2 h-4 w-4" />
-              Select Files to Upload as Folder
-            </>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FolderUp className="h-5 w-5" />
+            Folder Upload
+          </CardTitle>
+          <CardDescription>
+            Select multiple files to upload as a secure encrypted folder
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
-        </Button>
-      </CardContent>
-    </Card>
+
+          {success && (
+            <Alert className="border-green-500 text-green-700 dark:text-green-400">
+              <AlertDescription>{success}</AlertDescription>
+            </Alert>
+          )}
+
+          {uploading && (
+            <div className="space-y-2">
+              <Progress value={progress} className="w-full" />
+              <p className="text-sm text-muted-foreground text-center">
+                {currentFile ? `Uploading: ${currentFile}` : "Processing..."}
+              </p>
+            </div>
+          )}
+
+          <Button
+            onClick={handleSelectAndUpload}
+            disabled={uploading}
+            className="w-full"
+            size="lg"
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Uploading... {Math.round(progress)}%
+              </>
+            ) : (
+              <>
+                <FolderUp className="mr-2 h-4 w-4" />
+                Select Files to Upload as Folder
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Folder Name Dialog */}
+      <Dialog open={showFolderDialog} onOpenChange={setShowFolderDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Folder</DialogTitle>
+            <DialogDescription>
+              Enter a name for your encrypted folder containing {selectedFiles.length} file(s)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Folder name"
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleStartUpload();
+                }
+              }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowFolderDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleStartUpload}>
+              Create & Upload
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
