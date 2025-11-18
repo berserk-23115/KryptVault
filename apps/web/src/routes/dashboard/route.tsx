@@ -61,7 +61,7 @@ function RouteComponent() {
               <Menu className="h-6 w-6" />
             </Button>
             <div className="flex items-center gap-3">
-              <img src="/web_logo.svg" alt="KryptVault Logo" width={30} height={30} />
+              <img src="/web_logo.svg" alt="KryptVault Logo" width={30} height={30} className="invert dark:invert-0"/>
               <h1 className="text-xl font-bold hidden sm:block">Krypt Vault</h1>
             </div>
           </div>

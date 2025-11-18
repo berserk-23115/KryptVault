@@ -33,7 +33,17 @@ function RouteComponent() {
       setLoading(true);
       setError(null);
       const files = await getSharedWithMe();
-      setSharedFiles(files);
+      
+      // Filter out files where the current user is the one who shared it
+      // These should be files shared by OTHER users only
+      const currentUserEmail = session?.data?.user?.email;
+      const sharedFilesFromOthers = files.filter(file => file.sharedByEmail !== currentUserEmail);
+      
+      console.log("All files:", files);
+      console.log("Current user email:", currentUserEmail);
+      console.log("Filtered files:", sharedFilesFromOthers);
+      
+      setSharedFiles(sharedFilesFromOthers);
     } catch (err) {
       console.error("Failed to load shared files:", err);
       const errorMsg = err instanceof Error ? err.message : "Failed to load shared files";

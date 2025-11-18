@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { FileUpload } from "@/components/FileUpload";
 import { FolderUpload } from "@/components/FolderUpload";
 import { filesApi, type FileMetadata } from "@/lib/files-api";
-import { downloadAndDecryptFile } from "@/lib/tauri-crypto";
 import { save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { FileIcon } from "lucide-react";
@@ -78,6 +77,20 @@ function RouteComponent() {
     try {
       setError(null);
       
+      // Get user's keypair from localStorage
+      const userKeysStr = localStorage.getItem("userKeypair");
+      if (!userKeysStr) {
+        throw new Error("Encryption keys not found. Please set up your keypair first.");
+      }
+
+      const userKeys = JSON.parse(userKeysStr);
+      const userPublicKey = userKeys.x25519PublicKey || userKeys.x25519_public_key;
+      const userPrivateKey = userKeys.x25519PrivateKey || userKeys.x25519_private_key;
+      
+      if (!userPublicKey || !userPrivateKey) {
+        throw new Error("Invalid keypair data. Please regenerate your encryption keys.");
+      }
+
       // Open save dialog
       const savePath = await save({
         title: "Save decrypted file",
@@ -99,20 +112,31 @@ function RouteComponent() {
       
       const downloadInfo = await filesApi.getDownloadInfo(file.id);
 
-      // Download and decrypt
+      // Unwrap the DEK using user's private key
+      toast.loading(`Downloading ${file.originalFilename}...`, {
+        id: toastId,
+        description: "Unwrapping encryption key...",
+      });
+
+      const { unwrapSharedDek, downloadAndDecryptSharedFile } = await import("@/lib/tauri-crypto");
+      const dekBase64 = await unwrapSharedDek(
+        downloadInfo.wrappedDek,
+        userPublicKey,
+        userPrivateKey
+      );
+
+      // Download and decrypt using the unwrapped DEK
       toast.loading(`Downloading ${file.originalFilename}...`, {
         id: toastId,
         description: "Downloading and decrypting file...",
       });
 
-      await downloadAndDecryptFile({
-        download_url: downloadInfo.downloadUrl,
-        wrapped_dek: downloadInfo.wrappedDek,
-        nonce: downloadInfo.nonce,
-        server_public_key: downloadInfo.serverPublicKey,
-        server_private_key: downloadInfo.serverPrivateKey,
-        output_path: savePath,
-      });
+      await downloadAndDecryptSharedFile(
+        downloadInfo.downloadUrl,
+        dekBase64,
+        downloadInfo.nonce,
+        savePath
+      );
 
       // Success
       toast.success(`Download complete!`, {
@@ -143,6 +167,20 @@ function RouteComponent() {
     try {
       setError(null);
       
+      // Get user's keypair from localStorage
+      const userKeysStr = localStorage.getItem("userKeypair");
+      if (!userKeysStr) {
+        throw new Error("Encryption keys not found. Please set up your keypair first.");
+      }
+
+      const userKeys = JSON.parse(userKeysStr);
+      const userPublicKey = userKeys.x25519PublicKey || userKeys.x25519_public_key;
+      const userPrivateKey = userKeys.x25519PrivateKey || userKeys.x25519_private_key;
+      
+      if (!userPublicKey || !userPrivateKey) {
+        throw new Error("Invalid keypair data. Please regenerate your encryption keys.");
+      }
+
       // Show initial toast
       toastId = toast.loading(`Preparing preview for ${file.originalFilename}...`, {
         description: "Fetching file...",
@@ -159,20 +197,31 @@ function RouteComponent() {
       
       const downloadInfo = await filesApi.getDownloadInfo(file.id);
 
-      // Download and decrypt
+      // Unwrap the DEK using user's private key
+      toast.loading(`Preparing preview for ${file.originalFilename}...`, {
+        id: toastId,
+        description: "Unwrapping encryption key...",
+      });
+
+      const { unwrapSharedDek, downloadAndDecryptSharedFile } = await import("@/lib/tauri-crypto");
+      const dekBase64 = await unwrapSharedDek(
+        downloadInfo.wrappedDek,
+        userPublicKey,
+        userPrivateKey
+      );
+
+      // Download and decrypt using the unwrapped DEK
       toast.loading(`Preparing preview for ${file.originalFilename}...`, {
         id: toastId,
         description: "Downloading and decrypting...",
       });
 
-      await downloadAndDecryptFile({
-        download_url: downloadInfo.downloadUrl,
-        wrapped_dek: downloadInfo.wrappedDek,
-        nonce: downloadInfo.nonce,
-        server_public_key: downloadInfo.serverPublicKey,
-        server_private_key: downloadInfo.serverPrivateKey,
-        output_path: tempPath,
-      });
+      await downloadAndDecryptSharedFile(
+        downloadInfo.downloadUrl,
+        dekBase64,
+        downloadInfo.nonce,
+        tempPath
+      );
 
       toast.success("Preview ready!", {
         id: toastId,
