@@ -312,16 +312,10 @@ function RouteComponent() {
 
         {/* Recent Files */}
         <section className="mt-6">
-          <div className="p-6 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-purple-900/20 backdrop-blur-xl">
+          <div className="p-2">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold">Recent Files</h2>
-              <Button
-                onClick={loadFiles}
-                variant="outline"
-                size="sm"
-              >
-                Refresh
-              </Button>
+              
             </div>
 
             {loading ? (
@@ -332,7 +326,7 @@ function RouteComponent() {
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                {files.map((file) => (
+                {files.slice(0, 12).map((file) => (
                   <FileCard
                     key={file.id}
                     file={file}
