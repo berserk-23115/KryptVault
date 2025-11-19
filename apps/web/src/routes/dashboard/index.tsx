@@ -298,10 +298,10 @@ function RouteComponent() {
         </div>
 
         {/* File Upload */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
           <FileUpload />
           <FolderUpload />
-        </div>
+        </div> */}
 
         {/* Error Display */}
         {error && (

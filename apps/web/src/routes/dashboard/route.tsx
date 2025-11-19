@@ -14,6 +14,7 @@ import {
   File,
   FolderUp,
   FolderPlus,
+  Plus,
 } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
 import UserMenu from "@/components/user-menu";
@@ -86,32 +87,20 @@ function RouteComponent() {
 
   const handleFileUpload = async () => {
     try {
-      // Open file picker dialog
+      // Open file picker dialog for multiple files
       const selected = await open({
-        multiple: false,
-        title: "Select a file to encrypt and upload",
+        multiple: true,
+        title: "Select files to encrypt and upload",
       });
 
-      if (!selected || typeof selected !== "string") {
+      if (!selected || (Array.isArray(selected) && selected.length === 0)) {
         return;
       }
 
-      const filePath = selected;
-      const filename = filePath.split("/").pop() || filePath.split("\\").pop() || "unknown";
-      
-      const toastId = toast.loading(`Uploading ${filename}...`);
+      const filePaths = Array.isArray(selected) ? selected : [selected];
+      const toastId = toast.loading(`Uploading ${filePaths.length} file(s)...`);
 
       try {
-        // Get file info
-        const fileSize = 0; // Will be updated from encryption result
-
-        // Initialize upload on server
-        const initResponse = await filesApi.initUpload(
-          filename,
-          fileSize || 1,
-          ""
-        );
-
         // Get user's public key for wrapping DEK
         const userKeysStr = localStorage.getItem("userKeypair");
         if (!userKeysStr) {
@@ -125,25 +114,43 @@ function RouteComponent() {
           throw new Error("Invalid keypair data. Please regenerate your encryption keys.");
         }
 
-        // Encrypt and upload using Tauri
-        const uploadResponse = await encryptAndUploadFile({
-          file_path: filePath,
-          server_public_key: userPublicKey,
-          presigned_url: initResponse.presignedUrl,
-          file_key: initResponse.s3Key,
-        });
+        // Upload each file
+        for (let i = 0; i < filePaths.length; i++) {
+          const filePath = filePaths[i];
+          const filename = filePath.split("/").pop() || filePath.split("\\").pop() || "unknown";
+          
+          toast.loading(`Uploading ${filename} (${i + 1}/${filePaths.length})...`, { id: toastId });
 
-        // Complete upload on server
-        await filesApi.completeUpload({
-          fileId: initResponse.fileId,
-          s3Key: uploadResponse.file_key,
-          wrappedDek: uploadResponse.wrapped_dek,
-          nonce: uploadResponse.nonce,
-          originalFilename: uploadResponse.original_filename,
-          fileSize: uploadResponse.file_size,
-        });
+          // Get file info
+          const fileSize = 0; // Will be updated from encryption result
 
-        toast.success(`File "${filename}" uploaded successfully!`, { id: toastId });
+          // Initialize upload on server
+          const initResponse = await filesApi.initUpload(
+            filename,
+            fileSize || 1,
+            ""
+          );
+
+          // Encrypt and upload using Tauri
+          const uploadResponse = await encryptAndUploadFile({
+            file_path: filePath,
+            server_public_key: userPublicKey,
+            presigned_url: initResponse.presignedUrl,
+            file_key: initResponse.s3Key,
+          });
+
+          // Complete upload on server
+          await filesApi.completeUpload({
+            fileId: initResponse.fileId,
+            s3Key: uploadResponse.file_key,
+            wrappedDek: uploadResponse.wrapped_dek,
+            nonce: uploadResponse.nonce,
+            originalFilename: uploadResponse.original_filename,
+            fileSize: uploadResponse.file_size,
+          });
+        }
+
+        toast.success(`Successfully uploaded ${filePaths.length} file(s)!`, { id: toastId });
         
         // Refresh the page data if needed
         window.location.reload();
@@ -344,7 +351,7 @@ function RouteComponent() {
                 className="flex-1 gap-2"
                 onClick={handleFileUpload}
               >
-                <Upload className="h-4 w-4" />
+                <Plus className="h-4 w-4" />
                 Upload
               </Button>
               <DropdownMenu>
@@ -362,13 +369,6 @@ function RouteComponent() {
                     <DropdownMenuItem onClick={handleFolderUpload}>
                       <FolderUp className="h-4 w-4" />
                       Upload Folder
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem>
-                      <FolderPlus className="h-4 w-4" />
-                      Create New Folder
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                 </DropdownMenuContent>
