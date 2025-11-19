@@ -15,6 +15,7 @@ RUN turbo prune server --docker
 FROM base AS installer
 WORKDIR /app
 COPY --from=builder /app/out/json/ .
+COPY --from=builder /app/out/full/tsconfig.base.json ./tsconfig.base.json
 RUN pnpm install --frozen-lockfile
 COPY --from=builder /app/out/full/ .
 RUN pnpm run build --filter=server...
