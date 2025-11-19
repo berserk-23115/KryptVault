@@ -1,10 +1,11 @@
 import type { auth } from "@krypt-vault/auth";
 import { createAuthClient } from "better-auth/react";
 import { inferAdditionalFields } from "better-auth/client/plugins";
+import { passkeyClient } from "better-auth/client/plugins";
 
 export const authClient = createAuthClient({
   baseURL: import.meta.env.VITE_SERVER_URL,
-  plugins: [inferAdditionalFields<typeof auth>()],
+  plugins: [inferAdditionalFields<typeof auth>(), passkeyClient()],
   fetchOptions: {
     onSuccess: (ctx) => {
       if (typeof window === "undefined") return;

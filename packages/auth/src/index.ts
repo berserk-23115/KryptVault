@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@krypt-vault/db";
 import * as schema from "@krypt-vault/db/schema/auth";
 import { bearer } from "better-auth/plugins/bearer";
+import { passkey } from "better-auth/plugins/passkey";
 
 export const auth = betterAuth<BetterAuthOptions>({
   database: drizzleAdapter(db, {
@@ -21,5 +22,5 @@ export const auth = betterAuth<BetterAuthOptions>({
       httpOnly: true,
     },
   },
-  plugins: [bearer()],
+  plugins: [bearer(), passkey()],
 });

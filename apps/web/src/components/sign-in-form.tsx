@@ -206,7 +206,21 @@ export default function SignInForm({
         <div className="relative w-full">
           <Button
             type="button"
-            onClick={() => toast.info("Passkey sign-in coming soon!")}
+            onClick={async () => {
+              await authClient.signIn.passkey({
+                fetchOptions: {
+                  onSuccess: () => {
+                    navigate({
+                      to: "/dashboard",
+                    });
+                    toast.success("Sign in successful");
+                  },
+                  onError: (error) => {
+                    toast.error(error.error.message || error.error.statusText);
+                  },
+                },
+              });
+            }}
             variant={"outline"}
             className="h-11 w-full text-sm font-semibold rounded-lg"
           >
