@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db, folder, folderKey, file, fileFolderKey, user, userKeypair } from "@krypt-vault/db";
-import { eq, and } from "@krypt-vault/db";
+import { eq, and, sql } from "@krypt-vault/db";
 import { z } from "zod";
 import { auth } from "@krypt-vault/auth";
 
@@ -123,6 +123,77 @@ app.get("/", async (c) => {
 	} catch (error) {
 		console.error("List folders error:", error);
 		return c.json({ error: "Failed to list folders" }, 500);
+	}
+});
+
+// GET /api/folders/shared/with-me - List folders shared with the current user
+app.get("/shared/with-me", async (c) => {
+	try {
+		const userId = (c as any).get("userId") as string;
+		
+		// Get folders shared with user (not owned by user)
+		const folders = await db
+			.select({
+				folderId: folder.id,
+				name: folder.name,
+				description: folder.description,
+				parentFolderId: folder.parentFolderId,
+				ownerId: folder.ownerId,
+				ownerName: user.name,
+				ownerEmail: user.email,
+				wrappedFolderKey: folderKey.wrappedFolderKey,
+				sharedBy: folderKey.sharedBy,
+				sharedAt: folderKey.createdAt,
+				createdAt: folder.createdAt,
+			})
+			.from(folderKey)
+			.innerJoin(folder, eq(folderKey.folderId, folder.id))
+			.innerJoin(user, eq(folder.ownerId, user.id))
+			.where(
+				and(
+					eq(folderKey.recipientUserId, userId),
+					// Exclude folders owned by the user
+					(sql`${folder.ownerId} != ${userId}`)
+				)
+			);
+		
+		return c.json({ folders });
+	} catch (error) {
+		console.error("List shared folders error:", error);
+		return c.json({ error: "Failed to list shared folders" }, 500);
+	}
+});
+
+// GET /api/folders/shared/by-me - List folders shared by the current user with others
+app.get("/shared/by-me", async (c) => {
+	try {
+		const userId = (c as any).get("userId") as string;
+		
+		// Get folders owned by user and shared with others
+		const sharedFolders = await db
+			.select({
+				folderId: folder.id,
+				folderName: folder.name,
+				recipientUserId: user.id,
+				recipientName: user.name,
+				recipientEmail: user.email,
+				sharedAt: folderKey.createdAt,
+			})
+			.from(folder)
+			.innerJoin(folderKey, eq(folder.id, folderKey.folderId))
+			.innerJoin(user, eq(folderKey.recipientUserId, user.id))
+			.where(
+				and(
+					eq(folder.ownerId, userId),
+					// Exclude the owner's own access entry
+					(sql`${folderKey.recipientUserId} != ${userId}`)
+				)
+			);
+		
+		return c.json({ shares: sharedFolders });
+	} catch (error) {
+		console.error("List folders shared by me error:", error);
+		return c.json({ error: "Failed to list folders shared by me" }, 500);
 	}
 });
 
@@ -470,6 +541,69 @@ app.get("/:folderId/access-list", async (c) => {
 	} catch (error) {
 		console.error("Get folder access list error:", error);
 		return c.json({ error: "Failed to get access list" }, 500);
+	}
+});
+
+// DELETE /api/folders/:folderId - Delete a folder and all its contents
+app.delete("/:folderId", async (c) => {
+	try {
+		const folderId = c.req.param("folderId");
+		const userId = (c as any).get("userId") as string;
+		
+		// Verify folder exists and user owns it
+		const [folderRecord] = await db
+			.select()
+			.from(folder)
+			.where(eq(folder.id, folderId))
+			.limit(1);
+		
+		if (!folderRecord) {
+			return c.json({ error: "Folder not found" }, 404);
+		}
+		
+		if (folderRecord.ownerId !== userId) {
+			return c.json({ error: "Only folder owner can delete the folder" }, 403);
+		}
+		
+		// Get all files in the folder
+		const filesInFolder = await db
+			.select()
+			.from(file)
+			.where(eq(file.folderId, folderId));
+		
+		// Delete all file-folder key entries for this folder
+		await db
+			.delete(fileFolderKey)
+			.where(eq(fileFolderKey.folderId, folderId));
+		
+		// Update all files to remove folderId (or delete them if you want)
+		// For now, we'll just remove the folder association
+		await db
+			.update(file)
+			.set({ folderId: null })
+			.where(eq(file.folderId, folderId));
+		
+		// Delete all folder key entries
+		await db
+			.delete(folderKey)
+			.where(eq(folderKey.folderId, folderId));
+		
+		// Delete the folder itself
+		await db
+			.delete(folder)
+			.where(eq(folder.id, folderId));
+		
+		return c.json({
+			success: true,
+			message: "Folder deleted successfully",
+			filesAffected: filesInFolder.length,
+		});
+	} catch (error) {
+		console.error("Delete folder error:", error);
+		return c.json({ 
+			error: "Failed to delete folder",
+			details: error instanceof Error ? error.message : String(error)
+		}, 500);
 	}
 });
 

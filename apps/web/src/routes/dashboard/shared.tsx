@@ -1,14 +1,34 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { FileIcon, Share2Icon } from "lucide-react";
+import { FileIcon, Share2Icon, Grid3x3, List, FolderOpen } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
-import { getSharedWithMe, type SharedFile } from "@/lib/sharing-api";
-import { downloadAndDecryptSharedFile, unwrapSharedDek } from "@/lib/tauri-crypto";
+import {
+  getSharedWithMe,
+  getSharedByMe,
+  type SharedFile,
+  type ShareRecord,
+} from "@/lib/sharing-api";
+import {
+  getSharedWithMeFolders,
+  getSharedByMeFolders,
+  getFolderDetails,
+  type SharedFolder,
+  type SharedFolderRecord,
+} from "@/lib/folders-api";
+import {
+  downloadAndDecryptSharedFile,
+  unwrapSharedDek,
+} from "@/lib/tauri-crypto";
 import { save } from "@tauri-apps/plugin-dialog";
 import { FileSidebar } from "@/components/FileSidebar";
+import { FolderSidebar } from "@/components/FolderSidebar";
 import { filesApi, type FileMetadata } from "@/lib/files-api";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { Card } from "@/components/ui/card";
+import type { Folder } from "@/lib/folders-api";
 
 export const Route = createFileRoute("/dashboard/shared")({
   component: RouteComponent,
@@ -23,30 +43,66 @@ export const Route = createFileRoute("/dashboard/shared")({
 
 function RouteComponent() {
   const { session } = Route.useRouteContext();
-  const [sharedFiles, setSharedFiles] = React.useState<SharedFile[]>([]);
+  const navigate = useNavigate();
+  const [sharedWithMeFiles, setSharedWithMeFiles] = React.useState<
+    SharedFile[]
+  >([]);
+  const [sharedByMeRecords, setSharedByMeRecords] = React.useState<
+    ShareRecord[]
+  >([]);
+  const [sharedWithMeFolders, setSharedWithMeFolders] = React.useState<
+    SharedFolder[]
+  >([]);
+  const [sharedByMeFolderRecords, setSharedByMeFolderRecords] = React.useState<
+    SharedFolderRecord[]
+  >([]);
   const [loading, setLoading] = React.useState(true);
-  const [selectedFile, setSelectedFile] = React.useState<SharedFile | null>(null);
+  const [selectedFile, setSelectedFile] = React.useState<SharedFile | null>(
+    null
+  );
+  const [selectedFolder, setSelectedFolder] =
+    React.useState<SharedFolder | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [viewMode, setViewMode] = React.useState<"grid" | "list">("grid");
 
   const loadSharedFiles = async () => {
     try {
       setLoading(true);
       setError(null);
-      const files = await getSharedWithMe();
-      
+
+      // Load shared with me files
+      const filesSharedWithMe = await getSharedWithMe();
+
       // Filter out files where the current user is the one who shared it
       // These should be files shared by OTHER users only
       const currentUserEmail = session?.data?.user?.email;
-      const sharedFilesFromOthers = files.filter(file => file.sharedByEmail !== currentUserEmail);
-      
-      console.log("All files:", files);
+      const sharedFilesFromOthers = filesSharedWithMe.filter(
+        (file) => file.sharedByEmail !== currentUserEmail
+      );
+
+      console.log("All files:", filesSharedWithMe);
       console.log("Current user email:", currentUserEmail);
       console.log("Filtered files:", sharedFilesFromOthers);
-      
-      setSharedFiles(sharedFilesFromOthers);
+
+      setSharedWithMeFiles(sharedFilesFromOthers);
+
+      // Load shared by me records
+      const filesSharedByMe = await getSharedByMe();
+      setSharedByMeRecords(filesSharedByMe);
+      console.log("Files shared by me:", filesSharedByMe);
+
+      // Load shared folders
+      const foldersSharedWithMe = await getSharedWithMeFolders();
+      setSharedWithMeFolders(foldersSharedWithMe);
+      console.log("Folders shared with me:", foldersSharedWithMe);
+
+      const foldersSharedByMe = await getSharedByMeFolders();
+      setSharedByMeFolderRecords(foldersSharedByMe);
+      console.log("Folders shared by me:", foldersSharedByMe);
     } catch (err) {
       console.error("Failed to load shared files:", err);
-      const errorMsg = err instanceof Error ? err.message : "Failed to load shared files";
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to load shared files";
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
@@ -60,6 +116,12 @@ function RouteComponent() {
 
   const handleFileClick = (file: SharedFile) => {
     setSelectedFile(file);
+    setSelectedFolder(null); // Clear folder selection when selecting a file
+  };
+
+  const handleFolderClick = (folder: SharedFolder) => {
+    setSelectedFolder(folder);
+    setSelectedFile(null); // Clear file selection when selecting a folder
   };
 
   const handleFileDoubleClick = async (file: SharedFile) => {
@@ -80,11 +142,15 @@ function RouteComponent() {
       }
 
       const userKeys = JSON.parse(userKeysStr);
-      const userPublicKey = userKeys.x25519PublicKey || userKeys.x25519_public_key;
-      const userPrivateKey = userKeys.x25519PrivateKey || userKeys.x25519_private_key;
+      const userPublicKey =
+        userKeys.x25519PublicKey || userKeys.x25519_public_key;
+      const userPrivateKey =
+        userKeys.x25519PrivateKey || userKeys.x25519_private_key;
 
       if (!userPublicKey || !userPrivateKey) {
-        toast.error("Invalid keypair data. Please regenerate your encryption keys.");
+        toast.error(
+          "Invalid keypair data. Please regenerate your encryption keys."
+        );
         return;
       }
 
@@ -134,7 +200,8 @@ function RouteComponent() {
       });
     } catch (err) {
       console.error("Download error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Download failed";
+      const errorMessage =
+        err instanceof Error ? err.message : "Download failed";
       setError(errorMessage);
 
       if (toastId) {
@@ -152,6 +219,154 @@ function RouteComponent() {
 
   const handlePreview = async (file: SharedFile) => {
     toast.info("Preview feature coming soon for shared files!");
+  };
+
+  const handleDownloadFolder = async (folder: SharedFolder) => {
+    try {
+      // Get user's keypair from localStorage
+      const userKeysStr = localStorage.getItem("userKeypair");
+      if (!userKeysStr) {
+        throw new Error("Encryption keys not found. Please set up your keypair first.");
+      }
+
+      const userKeys = JSON.parse(userKeysStr);
+      const userPublicKey = userKeys.x25519PublicKey || userKeys.x25519_public_key;
+      const userPrivateKey = userKeys.x25519PrivateKey || userKeys.x25519_private_key;
+
+      if (!userPublicKey || !userPrivateKey) {
+        throw new Error("Invalid keypair data. Please regenerate your encryption keys.");
+      }
+
+      // Get folder details to fetch all files
+      const toastId = toast.loading(`Preparing to download folder "${folder.name}"...`);
+      
+      const folderDetails = await getFolderDetails(folder.folderId);
+      
+      if (folderDetails.files.length === 0) {
+        toast.info("Empty folder", {
+          id: toastId,
+          description: "This folder doesn't contain any files.",
+        });
+        return;
+      }
+
+      // Ask user to select a directory to save all files
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selectedDir = await open({
+        directory: true,
+        multiple: false,
+        title: `Select folder to save files from "${folder.name}"`,
+      });
+
+      if (!selectedDir) {
+        toast.dismiss(toastId);
+        return;
+      }
+
+      const dirPath = typeof selectedDir === 'string' ? selectedDir : selectedDir[0];
+      
+      toast.loading(`Downloading ${folderDetails.files.length} file(s)...`, {
+        id: toastId,
+        description: `Saving to: ${dirPath}`,
+      });
+
+      let successCount = 0;
+      let failedFiles: string[] = [];
+
+      // Download each file
+      for (const file of folderDetails.files) {
+        try {
+          // Get download info
+          const downloadInfo = await filesApi.getDownloadInfo(file.fileId);
+
+          // Unwrap the DEK using user's private key
+          const dekBase64 = await unwrapSharedDek(
+            downloadInfo.wrappedDek,
+            userPublicKey,
+            userPrivateKey
+          );
+
+          // Create the output path
+          const outputPath = `${dirPath}/${file.originalFilename}`;
+
+          // Download and decrypt the file
+          await downloadAndDecryptSharedFile(
+            downloadInfo.downloadUrl,
+            dekBase64,
+            downloadInfo.nonce,
+            outputPath
+          );
+
+          successCount++;
+          
+          toast.loading(
+            `Downloading ${folderDetails.files.length} file(s)... (${successCount}/${folderDetails.files.length})`,
+            {
+              id: toastId,
+              description: `Saved: ${file.originalFilename}`,
+            }
+          );
+        } catch (err) {
+          console.error(`Failed to download ${file.originalFilename}:`, err);
+          failedFiles.push(file.originalFilename);
+        }
+      }
+
+      // Show final result
+      if (failedFiles.length === 0) {
+        toast.success("Folder downloaded successfully!", {
+          id: toastId,
+          description: `All ${successCount} file(s) saved to: ${dirPath}`,
+        });
+      } else {
+        toast.warning("Folder downloaded with errors", {
+          id: toastId,
+          description: `${successCount} succeeded, ${failedFiles.length} failed: ${failedFiles.join(", ")}`,
+        });
+      }
+    } catch (err) {
+      console.error("Download folder error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Download failed";
+      toast.error("Download failed", {
+        description: errorMessage,
+      });
+    }
+  };
+
+  const getFileIcon = (filename: string): string => {
+    const ext = filename.split(".").pop()?.toLowerCase();
+    const iconMap: Record<string, string> = {
+      pdf: "📄",
+      doc: "📝",
+      docx: "📝",
+      xls: "📊",
+      xlsx: "📊",
+      ppt: "📊",
+      pptx: "📊",
+      jpg: "🖼️",
+      jpeg: "🖼️",
+      png: "🖼️",
+      gif: "🖼️",
+      svg: "🖼️",
+      mp4: "🎥",
+      mov: "🎥",
+      avi: "🎥",
+      mp3: "🎵",
+      wav: "🎵",
+      zip: "🗜️",
+      rar: "🗜️",
+      "7z": "🗜️",
+      txt: "📃",
+    };
+    return iconMap[ext || ""] || "📁";
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
   // Convert SharedFile to FileMetadata for sidebar compatibility
@@ -179,66 +394,374 @@ function RouteComponent() {
   return (
     <main className="flex h-full overflow-hidden">
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {/* Header Section */}
-        <div className="w-full rounded-xl p-6 shadow-lg border 
-          border-neutral-300 dark:border-neutral-700 
-          bg-white/50 dark:bg-white/10 backdrop-blur-xl mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Share2Icon className="h-6 w-6 text-blue-500" />
-            <h2 className="text-2xl font-semibold">Shared With Me</h2>
+      <div className="flex-1 overflow-y-auto p-8">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <h1 className="text-4xl font-bold mb-2 text-neutral-900 dark:text-white">
+              Shared
+            </h1>
+            <p className="text-neutral-600 dark:text-neutral-400">
+              All shared files and folders will be displayed here
+            </p>
           </div>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            Files that other users have shared with you
-          </p>
         </div>
 
         {/* Error Display */}
         {error && (
-          <div className="mb-4 p-4 bg-red-500/10 border border-red-500 rounded-lg text-red-500">
+          <div className="mb-4 p-4 bg-red-500/10 border border-red-500 rounded-lg text-red-500 dark:text-red-400">
             {error}
           </div>
         )}
 
-        {/* Shared Files Section */}
-        <section>
-          <div className="p-6 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-purple-900/20 backdrop-blur-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">
-                {sharedFiles.length} {sharedFiles.length === 1 ? 'File' : 'Files'} Shared
-              </h2>
-              <Button onClick={loadSharedFiles} variant="outline" size="sm">
-                Refresh
-              </Button>
-            </div>
+        {/* Tabs Section */}
+        <Tabs defaultValue="shared-with-me" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="shared-with-me">Shared With Me</TabsTrigger>
+            <TabsTrigger value="shared-by-me">Shared By Me</TabsTrigger>
+          </TabsList>
 
-            {loading ? (
-              <div className="text-center py-12 text-neutral-500">
-                Loading shared files...
-              </div>
-            ) : sharedFiles.length === 0 ? (
-              <div className="text-center py-12">
-                <Share2Icon className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
-                <p className="text-neutral-500 mb-2">No files shared with you yet</p>
-                <p className="text-sm text-neutral-400">
-                  When someone shares a file with you, it will appear here
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                {sharedFiles.map((file) => (
-                  <SharedFileCard
-                    key={file.fileId}
-                    file={file}
-                    onClick={() => handleFileClick(file)}
-                    onDoubleClick={() => handleFileDoubleClick(file)}
-                    isSelected={selectedFile?.fileId === file.fileId}
-                  />
-                ))}
-              </div>
+          {/* Shared With Me Tab */}
+          <TabsContent value="shared-with-me" className="space-y-4">
+            {/* Folders Section */}
+            {sharedWithMeFolders.length > 0 && (
+              <section>
+                <div className="mb-0 flex gap-2">
+                  {/* <Button 
+                            variant="outline" 
+                            className="bg-neutral-900 border-neutral-700 text-white hover:bg-neutral-800 gap-2"
+                          >
+                            <Filter className="h-4 w-4" />
+                            Filters
+                          </Button> */}
+
+                  <h2 className="text-2xl font-bold mb-4 text-neutral-900 dark:text-white">
+                    Folders
+                  </h2>
+
+                  <ButtonGroup className="ml-auto">
+                    <Button
+                      onClick={() => setViewMode("list")}
+                      variant={viewMode === "list" ? "default" : "outline"}
+                      className={`gap-2 ${
+                        viewMode === "list"
+                          ? "bg-purple-600 hover:bg-purple-700"
+                          : "bg-neutral-100 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800"
+                      }`}
+                    >
+                      <List className="h-4 w-4" />
+                      List
+                    </Button>
+                    <Button
+                      onClick={() => setViewMode("grid")}
+                      variant={viewMode === "grid" ? "default" : "outline"}
+                      className={`gap-2 ${
+                        viewMode === "grid"
+                          ? "bg-purple-600 hover:bg-purple-700"
+                          : "bg-neutral-100 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800"
+                      }`}
+                    >
+                      <Grid3x3 className="h-4 w-4" />
+                      Grid
+                    </Button>
+                  </ButtonGroup>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
+                  {sharedWithMeFolders.map((folder) => (
+                    <div
+                      key={folder.folderId}
+                      onClick={() => handleFolderClick(folder)}
+                      onDoubleClick={() =>
+                        navigate({
+                          to: `/dashboard/folders/${folder.folderId}`,
+                        })
+                      }
+                      className="bg-neutral-100 dark:bg-neutral-900 rounded-lg p-4 border border-neutral-300 dark:border-neutral-800 hover:border-purple-400 dark:hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-800/50 transition cursor-pointer group"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                          <div className="w-12 h-12 bg-linear-to-br from-purple-200 to-purple-400 dark:from-purple-600 dark:to-purple-800 rounded flex items-center justify-center">
+                            <FolderOpen className="h-6 w-6 text-purple-800 dark:text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-neutral-900 dark:text-white truncate">
+                              {folder.name}
+                            </h3>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
+                              Shared by {folder.ownerName}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
             )}
-          </div>
-        </section>
+
+            {/* Files Section */}
+            <section>
+              <h2 className="text-2xl font-bold mb-4">Files</h2>
+
+              {loading ? (
+                <div className="text-center py-12 text-neutral-500">
+                  Loading files...
+                </div>
+              ) : sharedWithMeFiles.length === 0 &&
+                sharedWithMeFolders.length === 0 ? (
+                <div className="text-center py-8 text-neutral-500">
+                  <Share2Icon className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
+                  <p className="text-neutral-500 mb-2">
+                    No files or folders shared with you yet
+                  </p>
+                  <p className="text-sm text-neutral-400">
+                    When someone shares content with you, it will appear here
+                  </p>
+                </div>
+              ) : sharedWithMeFiles.length === 0 ? (
+                <div className="text-center py-8 text-neutral-500">
+                  No files shared with you
+                </div>
+              ) : viewMode === "list" ? (
+                // LIST VIEW
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-neutral-300 dark:border-neutral-800">
+                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
+                          Name
+                        </th>
+                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
+                          Shared By
+                        </th>
+                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
+                          Date Shared
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sharedWithMeFiles.map((file) => (
+                        <tr
+                          key={file.fileId}
+                          className={`border-b border-neutral-300 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition cursor-pointer ${
+                            selectedFile?.fileId === file.fileId
+                              ? "bg-purple-100 dark:bg-purple-600/20"
+                              : ""
+                          }`}
+                          onClick={() => handleFileClick(file)}
+                          onDoubleClick={() => handleFileDoubleClick(file)}
+                        >
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-2xl">
+                                {getFileIcon(file.originalFilename)}
+                              </span>
+                              <span className="text-neutral-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 cursor-pointer">
+                                {file.originalFilename}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 text-neutral-600 dark:text-neutral-400">
+                            {file.sharedByEmail}
+                          </td>
+                          <td className="py-4 px-4 text-neutral-600 dark:text-neutral-400">
+                            {new Date(file.sharedAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                day: "numeric",
+                                month: "long",
+                                year: "numeric",
+                              }
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                // GRID VIEW
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+                  {sharedWithMeFiles.map((file) => (
+                    <div
+                      key={file.fileId}
+                      onClick={() => handleFileClick(file)}
+                      onDoubleClick={() => handleFileDoubleClick(file)}
+                      className={`rounded-xl overflow-hidden shadow-md border 
+                      ${
+                        selectedFile?.fileId === file.fileId
+                          ? "border-purple-500 ring-2 ring-purple-500"
+                          : "border-neutral-300 dark:border-neutral-700"
+                      }
+                      bg-white dark:bg-purple-900/20 
+                      hover:scale-[1.02] hover:shadow-lg transition cursor-pointer`}
+                    >
+                      <div className="h-36 w-full bg-linear-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
+                        <span className="text-6xl">
+                          {getFileIcon(file.originalFilename)}
+                        </span>
+                      </div>
+
+                      <div className="p-4">
+                        <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+                          {file.originalFilename}
+                        </p>
+                        <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
+                          {formatFileSize(file.fileSize)}
+                        </p>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
+                          Shared by {file.sharedByEmail}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </TabsContent>
+
+          {/* Shared By Me Tab */}
+          <TabsContent value="shared-by-me" className="space-y-4">
+            {/* Folders Section */}
+            {sharedByMeFolderRecords.length > 0 && (
+              <section>
+                <h2 className="text-2xl font-bold mb-4">
+                  Folders Shared By Me
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
+                  {sharedByMeFolderRecords.map((share) => (
+                    <div
+                      key={`${share.folderId}-${share.recipientUserId}`}
+                      className="bg-neutral-100 dark:bg-neutral-900 rounded-lg p-4 border border-neutral-300 dark:border-neutral-800 hover:border-purple-400 dark:hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-800/50 transition group"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                          <div className="w-12 h-12 bg-linear-to-br from-purple-200 to-purple-400 dark:from-purple-600 dark:to-purple-800 rounded flex items-center justify-center">
+                            <FolderOpen className="h-6 w-6 text-purple-800 dark:text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-neutral-900 dark:text-white truncate">
+                              {share.folderName}
+                            </h3>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
+                              Shared with {share.recipientName}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Files Section */}
+            <section>
+              <h2 className="text-2xl font-bold mb-4">Files Shared By Me</h2>
+
+              {loading ? (
+                <div className="text-center py-12 text-neutral-500">
+                  Loading files...
+                </div>
+              ) : sharedByMeRecords.length === 0 &&
+                sharedByMeFolderRecords.length === 0 ? (
+                <div className="text-center py-8 text-neutral-500">
+                  <Share2Icon className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
+                  <p className="text-neutral-500 mb-2">
+                    You haven't shared any content yet
+                  </p>
+                  <p className="text-sm text-neutral-400">
+                    When you share files or folders with someone, they will
+                    appear here
+                  </p>
+                </div>
+              ) : sharedByMeRecords.length === 0 ? (
+                <div className="text-center py-8 text-neutral-500">
+                  No files shared by you
+                </div>
+              ) : viewMode === "list" ? (
+                // LIST VIEW
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-neutral-300 dark:border-neutral-800">
+                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
+                          File Name
+                        </th>
+                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
+                          Shared With
+                        </th>
+                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
+                          Date Shared
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sharedByMeRecords.map((share) => (
+                        <tr
+                          key={`${share.fileId}-${share.recipientUserId}`}
+                          className="border-b border-neutral-300 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition"
+                        >
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-2xl">
+                                {getFileIcon(share.originalFilename)}
+                              </span>
+                              <span className="text-neutral-900 dark:text-white">
+                                {share.originalFilename}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 text-neutral-600 dark:text-neutral-400">
+                            {share.recipientName} ({share.recipientEmail})
+                          </td>
+                          <td className="py-4 px-4 text-neutral-600 dark:text-neutral-400">
+                            {new Date(share.sharedAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                day: "numeric",
+                                month: "long",
+                                year: "numeric",
+                              }
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                // GRID VIEW
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+                  {sharedByMeRecords.map((share) => (
+                    <div
+                      key={`${share.fileId}-${share.recipientUserId}`}
+                      className="rounded-xl overflow-hidden shadow-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-purple-900/20 hover:scale-[1.02] hover:shadow-lg transition"
+                    >
+                      <div className="h-36 w-full bg-linear-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
+                        <span className="text-6xl">
+                          {getFileIcon(share.originalFilename)}
+                        </span>
+                      </div>
+
+                      <div className="p-4">
+                        <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+                          {share.originalFilename}
+                        </p>
+                        <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
+                          Shared with {share.recipientName}
+                        </p>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
+                          {new Date(share.sharedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Right Sidebar using FileSidebar component */}
@@ -253,7 +776,104 @@ function RouteComponent() {
           isSharedFile={true}
         />
       )}
+
+      {/* Folder Sidebar */}
+      {selectedFolder && (
+        <FolderSidebar
+          folder={selectedFolder as any}
+          onClose={() => setSelectedFolder(null)}
+          onOpenFolder={() =>
+            navigate({ to: `/dashboard/folders/${selectedFolder.folderId}` })
+          }
+          onDownload={() => handleDownloadFolder(selectedFolder)}
+          showShareButton={false}
+          showDeleteButton={false}
+          showDownloadButton={true}
+          showOpenButton={true}
+        />
+      )}
     </main>
+  );
+}
+
+// Shared File List Item Component
+function SharedFileListItem({
+  file,
+  onClick,
+  isSelected,
+}: {
+  file: SharedFile;
+  onClick: () => void;
+  isSelected?: boolean;
+}) {
+  const getFileIcon = (filename: string) => {
+    const ext = filename.split(".").pop()?.toLowerCase();
+    const iconMap: Record<string, string> = {
+      pdf: "📄",
+      doc: "📝",
+      docx: "📝",
+      xls: "📊",
+      xlsx: "📊",
+      ppt: "📊",
+      pptx: "📊",
+      jpg: "🖼️",
+      jpeg: "🖼️",
+      png: "🖼️",
+      gif: "🖼️",
+      svg: "🖼️",
+      mp4: "🎥",
+      mov: "🎥",
+      avi: "🎥",
+      mp3: "🎵",
+      wav: "🎵",
+      zip: "🗜️",
+      rar: "🗜️",
+      "7z": "🗜️",
+      txt: "📃",
+    };
+    return iconMap[ext || ""] || "📁";
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+  };
+
+  return (
+    <div
+      onClick={onClick}
+      className={`rounded-lg border p-4 transition cursor-pointer ${
+        isSelected
+          ? "border-blue-500 ring-2 ring-blue-500 bg-blue-500/10"
+          : "border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
+      } bg-neutral-50 dark:bg-neutral-800/30`}
+    >
+      <div className="flex items-center gap-4">
+        <div className="shrink-0">
+          <span className="text-3xl">{getFileIcon(file.originalFilename)}</span>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+            {file.originalFilename}
+          </p>
+          <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
+            {formatFileSize(file.fileSize)} ·{" "}
+            {new Date(file.sharedAt).toLocaleDateString()}
+          </p>
+          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+            From: {file.sharedByEmail}
+          </p>
+        </div>
+
+        <div className="shrink-0">
+          <Share2Icon className="h-5 w-5 text-blue-500" />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -312,7 +932,11 @@ function SharedFileCard({
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       className={`rounded-xl overflow-hidden shadow-md border 
-      ${isSelected ? "border-blue-500 ring-2 ring-blue-500" : "border-neutral-300 dark:border-neutral-700"}
+      ${
+        isSelected
+          ? "border-blue-500 ring-2 ring-blue-500"
+          : "border-neutral-300 dark:border-neutral-700"
+      }
       bg-white dark:bg-blue-900/20 
       hover:scale-[1.02] hover:shadow-lg transition cursor-pointer relative`}
     >
@@ -338,6 +962,132 @@ function SharedFileCard({
         </p>
         <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
           {new Date(file.sharedAt).toLocaleDateString()}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Shared By Me Card Component (List View)
+function SharedByMeCard({ share }: { share: ShareRecord }) {
+  const getFileIcon = (filename: string) => {
+    const ext = filename.split(".").pop()?.toLowerCase();
+
+    const iconMap: Record<string, string> = {
+      pdf: "📄",
+      doc: "📝",
+      docx: "📝",
+      xls: "📊",
+      xlsx: "📊",
+      ppt: "📊",
+      pptx: "📊",
+      jpg: "🖼️",
+      jpeg: "🖼️",
+      png: "🖼️",
+      gif: "🖼️",
+      svg: "🖼️",
+      mp4: "🎥",
+      mov: "🎥",
+      avi: "🎥",
+      mp3: "🎵",
+      wav: "🎵",
+      zip: "🗜️",
+      rar: "🗜️",
+      "7z": "🗜️",
+      txt: "📃",
+    };
+
+    return iconMap[ext || ""] || "📁";
+  };
+
+  return (
+    <div className="rounded-lg border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 p-4 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition">
+      <div className="flex items-center gap-4">
+        <div className="shrink-0">
+          <span className="text-3xl">
+            {getFileIcon(share.originalFilename)}
+          </span>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+            {share.originalFilename}
+          </p>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+            Shared with:{" "}
+            <span className="font-medium">{share.recipientEmail}</span>
+          </p>
+          {share.recipientName && (
+            <p className="text-xs text-neutral-500 dark:text-neutral-500">
+              {share.recipientName}
+            </p>
+          )}
+          <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
+            {new Date(share.sharedAt).toLocaleDateString()} at{" "}
+            {new Date(share.sharedAt).toLocaleTimeString()}
+          </p>
+        </div>
+
+        <div className="shrink-0">
+          <Share2Icon className="h-5 w-5 text-blue-500" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Shared By Me Card Component (Grid View)
+function SharedByMeCardGrid({ share }: { share: ShareRecord }) {
+  const getFileIcon = (filename: string) => {
+    const ext = filename.split(".").pop()?.toLowerCase();
+
+    const iconMap: Record<string, string> = {
+      pdf: "📄",
+      doc: "📝",
+      docx: "📝",
+      xls: "📊",
+      xlsx: "📊",
+      ppt: "📊",
+      pptx: "📊",
+      jpg: "🖼️",
+      jpeg: "🖼️",
+      png: "🖼️",
+      gif: "🖼️",
+      svg: "🖼️",
+      mp4: "🎥",
+      mov: "🎥",
+      avi: "🎥",
+      mp3: "🎵",
+      wav: "🎵",
+      zip: "🗜️",
+      rar: "🗜️",
+      "7z": "🗜️",
+      txt: "📃",
+    };
+
+    return iconMap[ext || ""] || "📁";
+  };
+
+  return (
+    <div className="rounded-xl overflow-hidden shadow-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-purple-900/20 hover:scale-[1.02] hover:shadow-lg transition">
+      <div className="h-36 w-full bg-linear-to-br from-green-500/20 to-purple-500/20 flex items-center justify-center">
+        <span className="text-6xl">{getFileIcon(share.originalFilename)}</span>
+      </div>
+
+      <div className="p-4">
+        <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+          {share.originalFilename}
+        </p>
+        <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 truncate">
+          To: {share.recipientEmail}
+        </p>
+        {share.recipientName && (
+          <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1 truncate">
+            {share.recipientName}
+          </p>
+        )}
+        <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
+          {new Date(share.sharedAt).toLocaleDateString()}
         </p>
       </div>
     </div>
