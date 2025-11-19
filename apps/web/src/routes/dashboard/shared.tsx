@@ -4,9 +4,22 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { FileIcon, Share2Icon, Grid3x3, List, FolderOpen } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
-import { getSharedWithMe, getSharedByMe, type SharedFile, type ShareRecord } from "@/lib/sharing-api";
-import { getSharedWithMeFolders, getSharedByMeFolders, type SharedFolder, type SharedFolderRecord } from "@/lib/folders-api";
-import { downloadAndDecryptSharedFile, unwrapSharedDek } from "@/lib/tauri-crypto";
+import {
+  getSharedWithMe,
+  getSharedByMe,
+  type SharedFile,
+  type ShareRecord,
+} from "@/lib/sharing-api";
+import {
+  getSharedWithMeFolders,
+  getSharedByMeFolders,
+  type SharedFolder,
+  type SharedFolderRecord,
+} from "@/lib/folders-api";
+import {
+  downloadAndDecryptSharedFile,
+  unwrapSharedDek,
+} from "@/lib/tauri-crypto";
 import { save } from "@tauri-apps/plugin-dialog";
 import { FileSidebar } from "@/components/FileSidebar";
 import { FolderSidebar } from "@/components/FolderSidebar";
@@ -30,13 +43,24 @@ export const Route = createFileRoute("/dashboard/shared")({
 function RouteComponent() {
   const { session } = Route.useRouteContext();
   const navigate = useNavigate();
-  const [sharedWithMeFiles, setSharedWithMeFiles] = React.useState<SharedFile[]>([]);
-  const [sharedByMeRecords, setSharedByMeRecords] = React.useState<ShareRecord[]>([]);
-  const [sharedWithMeFolders, setSharedWithMeFolders] = React.useState<SharedFolder[]>([]);
-  const [sharedByMeFolderRecords, setSharedByMeFolderRecords] = React.useState<SharedFolderRecord[]>([]);
+  const [sharedWithMeFiles, setSharedWithMeFiles] = React.useState<
+    SharedFile[]
+  >([]);
+  const [sharedByMeRecords, setSharedByMeRecords] = React.useState<
+    ShareRecord[]
+  >([]);
+  const [sharedWithMeFolders, setSharedWithMeFolders] = React.useState<
+    SharedFolder[]
+  >([]);
+  const [sharedByMeFolderRecords, setSharedByMeFolderRecords] = React.useState<
+    SharedFolderRecord[]
+  >([]);
   const [loading, setLoading] = React.useState(true);
-  const [selectedFile, setSelectedFile] = React.useState<SharedFile | null>(null);
-  const [selectedFolder, setSelectedFolder] = React.useState<SharedFolder | null>(null);
+  const [selectedFile, setSelectedFile] = React.useState<SharedFile | null>(
+    null
+  );
+  const [selectedFolder, setSelectedFolder] =
+    React.useState<SharedFolder | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<"grid" | "list">("grid");
 
@@ -44,19 +68,21 @@ function RouteComponent() {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Load shared with me files
       const filesSharedWithMe = await getSharedWithMe();
-      
+
       // Filter out files where the current user is the one who shared it
       // These should be files shared by OTHER users only
       const currentUserEmail = session?.data?.user?.email;
-      const sharedFilesFromOthers = filesSharedWithMe.filter(file => file.sharedByEmail !== currentUserEmail);
-      
+      const sharedFilesFromOthers = filesSharedWithMe.filter(
+        (file) => file.sharedByEmail !== currentUserEmail
+      );
+
       console.log("All files:", filesSharedWithMe);
       console.log("Current user email:", currentUserEmail);
       console.log("Filtered files:", sharedFilesFromOthers);
-      
+
       setSharedWithMeFiles(sharedFilesFromOthers);
 
       // Load shared by me records
@@ -74,7 +100,8 @@ function RouteComponent() {
       console.log("Folders shared by me:", foldersSharedByMe);
     } catch (err) {
       console.error("Failed to load shared files:", err);
-      const errorMsg = err instanceof Error ? err.message : "Failed to load shared files";
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to load shared files";
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
@@ -88,6 +115,12 @@ function RouteComponent() {
 
   const handleFileClick = (file: SharedFile) => {
     setSelectedFile(file);
+    setSelectedFolder(null); // Clear folder selection when selecting a file
+  };
+
+  const handleFolderClick = (folder: SharedFolder) => {
+    setSelectedFolder(folder);
+    setSelectedFile(null); // Clear file selection when selecting a folder
   };
 
   const handleFileDoubleClick = async (file: SharedFile) => {
@@ -108,11 +141,15 @@ function RouteComponent() {
       }
 
       const userKeys = JSON.parse(userKeysStr);
-      const userPublicKey = userKeys.x25519PublicKey || userKeys.x25519_public_key;
-      const userPrivateKey = userKeys.x25519PrivateKey || userKeys.x25519_private_key;
+      const userPublicKey =
+        userKeys.x25519PublicKey || userKeys.x25519_public_key;
+      const userPrivateKey =
+        userKeys.x25519PrivateKey || userKeys.x25519_private_key;
 
       if (!userPublicKey || !userPrivateKey) {
-        toast.error("Invalid keypair data. Please regenerate your encryption keys.");
+        toast.error(
+          "Invalid keypair data. Please regenerate your encryption keys."
+        );
         return;
       }
 
@@ -162,7 +199,8 @@ function RouteComponent() {
       });
     } catch (err) {
       console.error("Download error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Download failed";
+      const errorMessage =
+        err instanceof Error ? err.message : "Download failed";
       setError(errorMessage);
 
       if (toastId) {
@@ -247,29 +285,13 @@ function RouteComponent() {
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-bold mb-2 text-neutral-900 dark:text-white">Shared</h1>
+            <h1 className="text-4xl font-bold mb-2 text-neutral-900 dark:text-white">
+              Shared
+            </h1>
             <p className="text-neutral-600 dark:text-neutral-400">
               All shared files and folders will be displayed here
             </p>
           </div>
-          <ButtonGroup>
-            <Button
-              onClick={() => setViewMode("list")}
-              variant={viewMode === "list" ? "default" : "outline"}
-              className={`gap-2 ${viewMode === "list" ? "bg-purple-600 hover:bg-purple-700" : "bg-neutral-100 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800"}`}
-            >
-              <List className="h-4 w-4" />
-              List
-            </Button>
-            <Button
-              onClick={() => setViewMode("grid")}
-              variant={viewMode === "grid" ? "default" : "outline"}
-              className={`gap-2 ${viewMode === "grid" ? "bg-purple-600 hover:bg-purple-700" : "bg-neutral-100 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800"}`}
-            >
-              <Grid3x3 className="h-4 w-4" />
-              Grid
-            </Button>
-          </ButtonGroup>
         </div>
 
         {/* Error Display */}
@@ -291,16 +313,56 @@ function RouteComponent() {
             {/* Folders Section */}
             {sharedWithMeFolders.length > 0 && (
               <section>
-                <h2 className="text-2xl font-bold mb-4">Folders</h2>
+                <div className="mb-0 flex gap-2">
+                  {/* <Button 
+                            variant="outline" 
+                            className="bg-neutral-900 border-neutral-700 text-white hover:bg-neutral-800 gap-2"
+                          >
+                            <Filter className="h-4 w-4" />
+                            Filters
+                          </Button> */}
+
+                  <h2 className="text-2xl font-bold mb-4 text-neutral-900 dark:text-white">
+                    Folders
+                  </h2>
+
+                  <ButtonGroup className="ml-auto">
+                    <Button
+                      onClick={() => setViewMode("list")}
+                      variant={viewMode === "list" ? "default" : "outline"}
+                      className={`gap-2 ${
+                        viewMode === "list"
+                          ? "bg-purple-600 hover:bg-purple-700"
+                          : "bg-neutral-100 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800"
+                      }`}
+                    >
+                      <List className="h-4 w-4" />
+                      List
+                    </Button>
+                    <Button
+                      onClick={() => setViewMode("grid")}
+                      variant={viewMode === "grid" ? "default" : "outline"}
+                      className={`gap-2 ${
+                        viewMode === "grid"
+                          ? "bg-purple-600 hover:bg-purple-700"
+                          : "bg-neutral-100 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800"
+                      }`}
+                    >
+                      <Grid3x3 className="h-4 w-4" />
+                      Grid
+                    </Button>
+                  </ButtonGroup>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
                   {sharedWithMeFolders.map((folder) => (
                     <div
                       key={folder.folderId}
-                      onClick={() => {
-                        setSelectedFile(null);
-                        setSelectedFolder(folder);
-                      }}
-                      onDoubleClick={() => navigate({ to: `/dashboard/folders/${folder.folderId}` })}
+                      onClick={() => handleFolderClick(folder)}
+                      onDoubleClick={() =>
+                        navigate({
+                          to: `/dashboard/folders/${folder.folderId}`,
+                        })
+                      }
                       className="bg-neutral-100 dark:bg-neutral-900 rounded-lg p-4 border border-neutral-300 dark:border-neutral-800 hover:border-purple-400 dark:hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-800/50 transition cursor-pointer group"
                     >
                       <div className="flex items-start justify-between">
@@ -309,8 +371,12 @@ function RouteComponent() {
                             <FolderOpen className="h-6 w-6 text-purple-800 dark:text-white" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-neutral-900 dark:text-white truncate">{folder.name}</h3>
-                            <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">Shared by {folder.ownerName}</p>
+                            <h3 className="font-semibold text-neutral-900 dark:text-white truncate">
+                              {folder.name}
+                            </h3>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
+                              Shared by {folder.ownerName}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -325,11 +391,16 @@ function RouteComponent() {
               <h2 className="text-2xl font-bold mb-4">Files</h2>
 
               {loading ? (
-                <div className="text-center py-12 text-neutral-500">Loading files...</div>
-              ) : sharedWithMeFiles.length === 0 && sharedWithMeFolders.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500">
+                  Loading files...
+                </div>
+              ) : sharedWithMeFiles.length === 0 &&
+                sharedWithMeFolders.length === 0 ? (
                 <div className="text-center py-8 text-neutral-500">
                   <Share2Icon className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
-                  <p className="text-neutral-500 mb-2">No files or folders shared with you yet</p>
+                  <p className="text-neutral-500 mb-2">
+                    No files or folders shared with you yet
+                  </p>
                   <p className="text-sm text-neutral-400">
                     When someone shares content with you, it will appear here
                   </p>
@@ -344,9 +415,15 @@ function RouteComponent() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-neutral-300 dark:border-neutral-800">
-                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">Name</th>
-                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">Shared By</th>
-                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">Date Shared</th>
+                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
+                          Name
+                        </th>
+                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
+                          Shared By
+                        </th>
+                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
+                          Date Shared
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -354,14 +431,18 @@ function RouteComponent() {
                         <tr
                           key={file.fileId}
                           className={`border-b border-neutral-300 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition cursor-pointer ${
-                            selectedFile?.fileId === file.fileId ? "bg-purple-100 dark:bg-purple-600/20" : ""
+                            selectedFile?.fileId === file.fileId
+                              ? "bg-purple-100 dark:bg-purple-600/20"
+                              : ""
                           }`}
                           onClick={() => handleFileClick(file)}
                           onDoubleClick={() => handleFileDoubleClick(file)}
                         >
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
-                              <span className="text-2xl">{getFileIcon(file.originalFilename)}</span>
+                              <span className="text-2xl">
+                                {getFileIcon(file.originalFilename)}
+                              </span>
                               <span className="text-neutral-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 cursor-pointer">
                                 {file.originalFilename}
                               </span>
@@ -371,11 +452,14 @@ function RouteComponent() {
                             {file.sharedByEmail}
                           </td>
                           <td className="py-4 px-4 text-neutral-600 dark:text-neutral-400">
-                            {new Date(file.sharedAt).toLocaleDateString("en-US", {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                            })}
+                            {new Date(file.sharedAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                day: "numeric",
+                                month: "long",
+                                year: "numeric",
+                              }
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -391,12 +475,18 @@ function RouteComponent() {
                       onClick={() => handleFileClick(file)}
                       onDoubleClick={() => handleFileDoubleClick(file)}
                       className={`rounded-xl overflow-hidden shadow-md border 
-                      ${selectedFile?.fileId === file.fileId ? "border-purple-500 ring-2 ring-purple-500" : "border-neutral-300 dark:border-neutral-700"}
+                      ${
+                        selectedFile?.fileId === file.fileId
+                          ? "border-purple-500 ring-2 ring-purple-500"
+                          : "border-neutral-300 dark:border-neutral-700"
+                      }
                       bg-white dark:bg-purple-900/20 
                       hover:scale-[1.02] hover:shadow-lg transition cursor-pointer`}
                     >
                       <div className="h-36 w-full bg-linear-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
-                        <span className="text-6xl">{getFileIcon(file.originalFilename)}</span>
+                        <span className="text-6xl">
+                          {getFileIcon(file.originalFilename)}
+                        </span>
                       </div>
 
                       <div className="p-4">
@@ -422,7 +512,9 @@ function RouteComponent() {
             {/* Folders Section */}
             {sharedByMeFolderRecords.length > 0 && (
               <section>
-                <h2 className="text-2xl font-bold mb-4">Folders Shared By Me</h2>
+                <h2 className="text-2xl font-bold mb-4">
+                  Folders Shared By Me
+                </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
                   {sharedByMeFolderRecords.map((share) => (
                     <div
@@ -435,8 +527,12 @@ function RouteComponent() {
                             <FolderOpen className="h-6 w-6 text-purple-800 dark:text-white" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-neutral-900 dark:text-white truncate">{share.folderName}</h3>
-                            <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">Shared with {share.recipientName}</p>
+                            <h3 className="font-semibold text-neutral-900 dark:text-white truncate">
+                              {share.folderName}
+                            </h3>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
+                              Shared with {share.recipientName}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -451,13 +547,19 @@ function RouteComponent() {
               <h2 className="text-2xl font-bold mb-4">Files Shared By Me</h2>
 
               {loading ? (
-                <div className="text-center py-12 text-neutral-500">Loading files...</div>
-              ) : sharedByMeRecords.length === 0 && sharedByMeFolderRecords.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500">
+                  Loading files...
+                </div>
+              ) : sharedByMeRecords.length === 0 &&
+                sharedByMeFolderRecords.length === 0 ? (
                 <div className="text-center py-8 text-neutral-500">
                   <Share2Icon className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
-                  <p className="text-neutral-500 mb-2">You haven't shared any content yet</p>
+                  <p className="text-neutral-500 mb-2">
+                    You haven't shared any content yet
+                  </p>
                   <p className="text-sm text-neutral-400">
-                    When you share files or folders with someone, they will appear here
+                    When you share files or folders with someone, they will
+                    appear here
                   </p>
                 </div>
               ) : sharedByMeRecords.length === 0 ? (
@@ -470,9 +572,15 @@ function RouteComponent() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-neutral-300 dark:border-neutral-800">
-                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">File Name</th>
-                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">Shared With</th>
-                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">Date Shared</th>
+                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
+                          File Name
+                        </th>
+                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
+                          Shared With
+                        </th>
+                        <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
+                          Date Shared
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -483,7 +591,9 @@ function RouteComponent() {
                         >
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
-                              <span className="text-2xl">{getFileIcon(share.originalFilename)}</span>
+                              <span className="text-2xl">
+                                {getFileIcon(share.originalFilename)}
+                              </span>
                               <span className="text-neutral-900 dark:text-white">
                                 {share.originalFilename}
                               </span>
@@ -493,11 +603,14 @@ function RouteComponent() {
                             {share.recipientName} ({share.recipientEmail})
                           </td>
                           <td className="py-4 px-4 text-neutral-600 dark:text-neutral-400">
-                            {new Date(share.sharedAt).toLocaleDateString("en-US", {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                            })}
+                            {new Date(share.sharedAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                day: "numeric",
+                                month: "long",
+                                year: "numeric",
+                              }
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -513,7 +626,9 @@ function RouteComponent() {
                       className="rounded-xl overflow-hidden shadow-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-purple-900/20 hover:scale-[1.02] hover:shadow-lg transition"
                     >
                       <div className="h-36 w-full bg-linear-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
-                        <span className="text-6xl">{getFileIcon(share.originalFilename)}</span>
+                        <span className="text-6xl">
+                          {getFileIcon(share.originalFilename)}
+                        </span>
                       </div>
 
                       <div className="p-4">
@@ -554,7 +669,9 @@ function RouteComponent() {
         <FolderSidebar
           folder={selectedFolder as any}
           onClose={() => setSelectedFolder(null)}
-          onOpenFolder={() => navigate({ to: `/dashboard/folders/${selectedFolder.folderId}` })}
+          onOpenFolder={() =>
+            navigate({ to: `/dashboard/folders/${selectedFolder.folderId}` })
+          }
           showShareButton={false}
           showDeleteButton={false}
           showDownloadButton={true}
@@ -624,13 +741,14 @@ function SharedFileListItem({
         <div className="shrink-0">
           <span className="text-3xl">{getFileIcon(file.originalFilename)}</span>
         </div>
-        
+
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
             {file.originalFilename}
           </p>
           <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-            {formatFileSize(file.fileSize)} · {new Date(file.sharedAt).toLocaleDateString()}
+            {formatFileSize(file.fileSize)} ·{" "}
+            {new Date(file.sharedAt).toLocaleDateString()}
           </p>
           <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
             From: {file.sharedByEmail}
@@ -700,7 +818,11 @@ function SharedFileCard({
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       className={`rounded-xl overflow-hidden shadow-md border 
-      ${isSelected ? "border-blue-500 ring-2 ring-blue-500" : "border-neutral-300 dark:border-neutral-700"}
+      ${
+        isSelected
+          ? "border-blue-500 ring-2 ring-blue-500"
+          : "border-neutral-300 dark:border-neutral-700"
+      }
       bg-white dark:bg-blue-900/20 
       hover:scale-[1.02] hover:shadow-lg transition cursor-pointer relative`}
     >
@@ -768,15 +890,18 @@ function SharedByMeCard({ share }: { share: ShareRecord }) {
     <div className="rounded-lg border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 p-4 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition">
       <div className="flex items-center gap-4">
         <div className="shrink-0">
-          <span className="text-3xl">{getFileIcon(share.originalFilename)}</span>
+          <span className="text-3xl">
+            {getFileIcon(share.originalFilename)}
+          </span>
         </div>
-        
+
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
             {share.originalFilename}
           </p>
           <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-            Shared with: <span className="font-medium">{share.recipientEmail}</span>
+            Shared with:{" "}
+            <span className="font-medium">{share.recipientEmail}</span>
           </p>
           {share.recipientName && (
             <p className="text-xs text-neutral-500 dark:text-neutral-500">
@@ -784,7 +909,8 @@ function SharedByMeCard({ share }: { share: ShareRecord }) {
             </p>
           )}
           <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
-            {new Date(share.sharedAt).toLocaleDateString()} at {new Date(share.sharedAt).toLocaleTimeString()}
+            {new Date(share.sharedAt).toLocaleDateString()} at{" "}
+            {new Date(share.sharedAt).toLocaleTimeString()}
           </p>
         </div>
 
