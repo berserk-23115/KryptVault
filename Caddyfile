@@ -1,0 +1,11 @@
+api.ayushk.me {
+    reverse_proxy server:3000
+}
+
+s3.ayushk.me {
+    reverse_proxy minio:9000
+}
+
+console.ayushk.me {
+    reverse_proxy minio:9001
+}
