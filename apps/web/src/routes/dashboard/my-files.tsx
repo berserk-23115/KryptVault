@@ -10,6 +10,7 @@ import { FolderOpen, Filter, Grid3x3, List, MoreVertical, Plus } from "lucide-re
 import { Card } from "@/components/ui/card";
 import { downloadAndDecryptSharedFile, unwrapSharedDek } from "@/lib/tauri-crypto";
 import { FileSidebar } from "@/components/FileSidebar";
+import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +18,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { FileIcon, UserIcon } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard/my-files")({
   component: RouteComponent,
@@ -38,6 +41,7 @@ function RouteComponent() {
   const [error, setError] = React.useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = React.useState<Set<string>>(new Set());
   const [selectedFile, setSelectedFile] = React.useState<FileMetadata | null>(null);
+  const [selectedFolder, setSelectedFolder] = React.useState<Folder | null>(null);
   const [viewMode, setViewMode] = React.useState<"grid" | "list">("grid");
 
   const loadData = async () => {
@@ -241,8 +245,8 @@ function RouteComponent() {
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-bold mb-2">My Files and Folders</h1>
-            <p className="text-neutral-400">
+            <h1 className="text-4xl font-bold mb-2 text-neutral-900 dark:text-white">My Files and Folders</h1>
+            <p className="text-neutral-600 dark:text-neutral-400">
               All files and folders created and share with you will be displayed here
             </p>
           </div>
@@ -253,20 +257,24 @@ function RouteComponent() {
         </div>
 
         {/* Filters */}
-        <div className="mb-8 flex gap-2">
-          <Button 
+        <div className="mb-0 flex gap-2">
+          {/* <Button 
             variant="outline" 
             className="bg-neutral-900 border-neutral-700 text-white hover:bg-neutral-800 gap-2"
           >
             <Filter className="h-4 w-4" />
             Filters
-          </Button>
+          </Button> */}
+
+          <h2 className="text-2xl font-bold mb-4">Folders</h2>
+
+
           
-          <div className="ml-auto flex gap-2">
+          <ButtonGroup className="ml-auto">
             <Button
               onClick={() => setViewMode("list")}
               variant={viewMode === "list" ? "default" : "outline"}
-              className={`gap-2 ${viewMode === "list" ? "bg-purple-600 hover:bg-purple-700" : "bg-neutral-900 border-neutral-700 text-white hover:bg-neutral-800"}`}
+              className={`gap-2 ${viewMode === "list" ? "bg-purple-600 hover:bg-purple-700" : "bg-neutral-100 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800"}`}
             >
               <List className="h-4 w-4" />
               List
@@ -274,17 +282,17 @@ function RouteComponent() {
             <Button
               onClick={() => setViewMode("grid")}
               variant={viewMode === "grid" ? "default" : "outline"}
-              className={`gap-2 ${viewMode === "grid" ? "bg-purple-600 hover:bg-purple-700" : "bg-neutral-900 border-neutral-700 text-white hover:bg-neutral-800"}`}
+              className={`gap-2 ${viewMode === "grid" ? "bg-purple-600 hover:bg-purple-700" : "bg-neutral-100 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800"}`}
             >
               <Grid3x3 className="h-4 w-4" />
               Grid
             </Button>
-          </div>
+          </ButtonGroup>
         </div>
 
         {/* Error Display */}
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500 rounded-lg text-red-400">
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500 rounded-lg text-red-600 dark:text-red-400">
             {error}
           </div>
         )}
@@ -302,21 +310,25 @@ function RouteComponent() {
               {folders.map((folder) => (
                 <div
                   key={folder.folderId}
-                  onClick={() => navigate({ to: `/dashboard/folders/${folder.folderId}` })}
-                  className="bg-neutral-900 rounded-lg p-4 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800/50 transition cursor-pointer group"
+                  onClick={() => {
+                    setSelectedFile(null); // Clear file selection
+                    setSelectedFolder(folder);
+                  }}
+                  onDoubleClick={() => navigate({ to: `/dashboard/folders/${folder.folderId}` })}
+                  className="bg-neutral-100 dark:bg-neutral-900 rounded-lg p-4 border border-neutral-300 dark:border-neutral-800 hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-800/50 transition cursor-pointer group"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3 flex-1">
-                      <div className="w-12 h-12 bg-linear-to-br from-purple-600 to-purple-800 rounded flex items-center justify-center">
-                        <FolderOpen className="h-6 w-6 text-white" />
+                      <div className="w-12 h-12 bg-linear-to-br from-purple-200 to-purple-400 dark:from-purple-600 dark:to-purple-800 rounded flex items-center justify-center">
+                        <FolderOpen className="h-6 w-6 text-neutral-900 dark:text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-white truncate">{folder.name}</h3>
-                        <p className="text-sm text-neutral-400 truncate">{folder.ownerName}</p>
+                        <h3 className="font-semibold text-neutral-900 dark:text-white truncate">{folder.name}</h3>
+                        {/* <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">{folder.ownerName}</p> */}
                       </div>
                     </div>
                     <button className="opacity-0 group-hover:opacity-100 transition">
-                      <MoreVertical className="h-4 w-4 text-neutral-400" />
+                      <MoreVertical className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
                     </button>
                   </div>
                 </div>
@@ -358,7 +370,10 @@ function RouteComponent() {
                       className={`border-b border-neutral-800 hover:bg-neutral-900/50 transition cursor-pointer ${
                         selectedFile?.id === file.id ? "bg-purple-600/20" : ""
                       }`}
-                      onClick={() => setSelectedFile(file)}
+                      onClick={() => {
+                        setSelectedFolder(null); // Clear folder selection
+                        setSelectedFile(file);
+                      }}
                     >
                       <td className="py-4 px-4">
                         <Checkbox
@@ -425,7 +440,10 @@ function RouteComponent() {
               {files.map((file) => (
                 <div
                   key={file.id}
-                  onClick={() => setSelectedFile(file)}
+                  onClick={() => {
+                    setSelectedFolder(null); // Clear folder selection
+                    setSelectedFile(file);
+                  }}
                   className={`rounded-xl overflow-hidden shadow-md border 
                   ${selectedFile?.id === file.id ? "border-purple-500 ring-2 ring-purple-500" : "border-neutral-300 dark:border-neutral-700"}
                   bg-white dark:bg-purple-900/20 
@@ -473,6 +491,108 @@ function RouteComponent() {
           isSharedFile={false}
         />
       )}
+
+      {/* Folder Sidebar */}
+      {selectedFolder && (
+        <FolderSidebar
+          folder={selectedFolder}
+          onClose={() => setSelectedFolder(null)}
+          onOpenFolder={() => navigate({ to: `/dashboard/folders/${selectedFolder.folderId}` })}
+        />
+      )}
     </main>
+  );
+}
+
+// Folder Sidebar Component
+function FolderSidebar({
+  folder,
+  onClose,
+  onOpenFolder,
+}: {
+  folder: Folder;
+  onClose: () => void;
+  onOpenFolder: () => void;
+}) {
+  return (
+    <aside className="w-96 border-l border-border bg-card flex flex-col overflow-y-auto">
+      <div className="p-6 flex flex-col h-full">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-6">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <FolderOpen className="h-5 w-5 shrink-0" />
+            <h2 className="text-lg font-semibold truncate">
+              {folder.name}
+            </h2>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="shrink-0"
+          >
+            <span className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white">✕</span>
+          </Button>
+        </div>
+
+        <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">
+          Folder details and options
+        </p>
+
+        {/* Folder Icon Preview */}
+        <div className="aspect-video bg-linear-to-br from-purple-200 to-purple-400 dark:from-purple-600 dark:to-purple-800 rounded-lg flex items-center justify-center mb-6">
+          <FolderOpen className="h-16 w-16 text-neutral-900 dark:text-white" />
+        </div>
+
+        {/* Folder Info - Scrollable */}
+        <div className="space-y-4 mb-6 flex-1 overflow-y-auto">
+          <div>
+            <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 mb-1">
+              <FolderOpen className="h-4 w-4" />
+              <span>Folder Name</span>
+            </div>
+            <p className="text-lg font-medium text-neutral-900 dark:text-white">
+              {folder.name}
+            </p>
+          </div>
+
+          <Separator />
+
+          <div>
+            <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 mb-1">
+              <UserIcon className="h-4 w-4" />
+              <span>Owner</span>
+            </div>
+            <p className="text-lg font-medium text-neutral-900 dark:text-white">
+              {folder.ownerName}
+            </p>
+          </div>
+
+          <Separator />
+
+          <div>
+            <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 mb-1">
+              <FileIcon className="h-4 w-4" />
+              <span>Folder ID</span>
+            </div>
+            <p className="text-sm font-mono text-neutral-900 dark:text-white break-all bg-neutral-100 dark:bg-neutral-800 p-2 rounded mt-1">
+              {folder.folderId}
+            </p>
+          </div>
+        </div>
+
+        {/* Actions - Fixed at Bottom */}
+        <div className="space-y-2 pt-6 border-t border-border">
+          <Button
+            onClick={onOpenFolder}
+            className="w-full"
+            variant="default"
+          >
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Open Folder
+          </Button>
+        </div>
+      </div>
+    </aside>
   );
 }

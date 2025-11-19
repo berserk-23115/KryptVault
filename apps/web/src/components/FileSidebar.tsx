@@ -1,5 +1,14 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import {
   FileIcon,
@@ -37,6 +46,7 @@ export function FileSidebar({
   showShareButton = true,
   isSharedFile = false,
 }: FileSidebarProps) {
+  const [isDeleteOpen, setIsDeleteOpen] = React.useState(false);
   if (!file) return null;
 
   return (
@@ -105,7 +115,7 @@ export function FileSidebar({
             </p>
           </div>
 
-          {file.mimeType && (
+          {/* {file.mimeType && (
             <>
               <Separator />
               <div>
@@ -118,7 +128,7 @@ export function FileSidebar({
                 </p>
               </div>
             </>
-          )}
+          )} */}
 
           <Separator />
 
@@ -165,7 +175,7 @@ export function FileSidebar({
             </Button>
           )}
           
-          {onPreview && (
+          {/* {onPreview && (
             <Button
               onClick={() => onPreview(file)}
               className="w-full"
@@ -174,7 +184,7 @@ export function FileSidebar({
               <EyeIcon className="h-4 w-4 mr-2" />
               Preview
             </Button>
-          )}
+          )} */}
           
           {onDownload && (
             <Button
@@ -188,14 +198,48 @@ export function FileSidebar({
           )}
 
           {onDelete && !isSharedFile && (
-            <Button
-              onClick={() => onDelete(file)}
-              className="w-full"
-              variant="destructive"
-            >
-              <TrashIcon className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
+            <>
+              <Button
+                onClick={() => setIsDeleteOpen(true)}
+                className="w-full"
+                variant="destructive"
+              >
+                <TrashIcon className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
+
+              <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Confirm delete</DialogTitle>
+                    <DialogDescription>
+                      Are you sure you want to permanently delete "{file.originalFilename}"? This action cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
+                        Cancel
+                      </Button>
+                    </DialogClose>
+
+                    <Button
+                      variant="destructive"
+                      onClick={() => {
+                        try {
+                          onDelete(file);
+                        } finally {
+                          setIsDeleteOpen(false);
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </>
           )}
         </div>
       </div>
