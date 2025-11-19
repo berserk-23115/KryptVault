@@ -3,7 +3,7 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { filesApi, type FileMetadata } from "@/lib/files-api";
-import { getFolders, deleteFolder, type Folder } from "@/lib/folders-api";
+import { getFolders, deleteFolder, getFolderDetails, type Folder } from "@/lib/folders-api";
 import { save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { FolderOpen, Filter, Grid3x3, List, MoreVertical, Plus, Download } from "lucide-react";
@@ -234,6 +234,121 @@ function RouteComponent() {
   const handleShareFile = (file: FileMetadata) => {
     setFileToShare(file);
     setShareFileDialogOpen(true);
+  };
+
+  const handleDownloadFolder = async (folder: Folder) => {
+    try {
+      setError(null);
+
+      // Get user's keypair from localStorage
+      const userKeysStr = localStorage.getItem("userKeypair");
+      if (!userKeysStr) {
+        throw new Error("Encryption keys not found. Please set up your keypair first.");
+      }
+
+      const userKeys = JSON.parse(userKeysStr);
+      const userPublicKey = userKeys.x25519PublicKey || userKeys.x25519_public_key;
+      const userPrivateKey = userKeys.x25519PrivateKey || userKeys.x25519_private_key;
+
+      if (!userPublicKey || !userPrivateKey) {
+        throw new Error("Invalid keypair data. Please regenerate your encryption keys.");
+      }
+
+      // Get folder details to fetch all files
+      const toastId = toast.loading(`Preparing to download folder "${folder.name}"...`);
+      
+      const folderDetails = await getFolderDetails(folder.folderId);
+      
+      if (folderDetails.files.length === 0) {
+        toast.info("Empty folder", {
+          id: toastId,
+          description: "This folder doesn't contain any files.",
+        });
+        return;
+      }
+
+      // Ask user to select a directory to save all files
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selectedDir = await open({
+        directory: true,
+        multiple: false,
+        title: `Select folder to save files from "${folder.name}"`,
+      });
+
+      if (!selectedDir) {
+        toast.dismiss(toastId);
+        return;
+      }
+
+      const dirPath = typeof selectedDir === 'string' ? selectedDir : selectedDir[0];
+      
+      toast.loading(`Downloading ${folderDetails.files.length} file(s)...`, {
+        id: toastId,
+        description: `Saving to: ${dirPath}`,
+      });
+
+      let successCount = 0;
+      let failedFiles: string[] = [];
+
+      // Download each file
+      for (const file of folderDetails.files) {
+        try {
+          // Get download info
+          const downloadInfo = await filesApi.getDownloadInfo(file.fileId);
+
+          // Unwrap the DEK using user's private key
+          const dekBase64 = await unwrapSharedDek(
+            downloadInfo.wrappedDek,
+            userPublicKey,
+            userPrivateKey
+          );
+
+          // Create the output path
+          const outputPath = `${dirPath}/${file.originalFilename}`;
+
+          // Download and decrypt the file
+          await downloadAndDecryptSharedFile(
+            downloadInfo.downloadUrl,
+            dekBase64,
+            downloadInfo.nonce,
+            outputPath
+          );
+
+          successCount++;
+          
+          toast.loading(
+            `Downloading ${folderDetails.files.length} file(s)... (${successCount}/${folderDetails.files.length})`,
+            {
+              id: toastId,
+              description: `Saved: ${file.originalFilename}`,
+            }
+          );
+        } catch (err) {
+          console.error(`Failed to download ${file.originalFilename}:`, err);
+          failedFiles.push(file.originalFilename);
+        }
+      }
+
+      // Show final result
+      if (failedFiles.length === 0) {
+        toast.success("Folder downloaded successfully!", {
+          id: toastId,
+          description: `All ${successCount} file(s) saved to: ${dirPath}`,
+        });
+      } else {
+        toast.warning("Folder downloaded with errors", {
+          id: toastId,
+          description: `${successCount} succeeded, ${failedFiles.length} failed: ${failedFiles.join(", ")}`,
+        });
+      }
+    } catch (err) {
+      console.error("Download folder error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Download failed";
+      setError(errorMessage);
+      toast.error("Download failed", {
+        description: errorMessage,
+      });
+    }
   };
 
   const toggleFileSelection = (fileId: string) => {
@@ -539,6 +654,7 @@ function RouteComponent() {
           onOpenFolder={() => navigate({ to: `/dashboard/folders/${selectedFolder.folderId}` })}
           onDelete={() => handleDeleteFolder(selectedFolder)}
           onShare={() => handleShareFolder(selectedFolder)}
+          onDownload={() => handleDownloadFolder(selectedFolder)}
         />
       )}
 
