@@ -292,3 +292,76 @@ export async function getMyKeypair(): Promise<{ x25519PublicKey: string; ed25519
 
   return response.json();
 }
+
+// ================== Folder Sharing Functions ==================
+
+export interface ShareFolderRequest {
+  recipientUserId: string;
+  wrappedFolderKey: string;
+}
+
+/**
+ * Share a folder with another user
+ */
+export async function shareFolder(folderId: string, request: ShareFolderRequest): Promise<void> {
+  const response = await fetch(`${API_URL}/api/folders/${folderId}/share`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    credentials: "include",
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to share folder");
+  }
+}
+
+/**
+ * Get list of users with access to a folder
+ */
+export async function getFolderAccessList(folderId: string): Promise<AccessList> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("bearer_token") : null;
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  
+  const response = await fetch(`${API_URL}/api/folders/${folderId}/access-list`, {
+    headers,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to get folder access list");
+  }
+
+  return response.json();
+}
+
+/**
+ * Revoke a user's access to a folder
+ */
+export async function revokeFolderAccess(folderId: string, recipientUserId: string): Promise<void> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("bearer_token") : null;
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  
+  const response = await fetch(
+    `${API_URL}/api/folders/${folderId}/revoke?recipientUserId=${recipientUserId}`,
+    {
+      method: "DELETE",
+      headers,
+      credentials: "include",
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to revoke folder access");
+  }
+}
+

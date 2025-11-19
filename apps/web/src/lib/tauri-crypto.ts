@@ -211,3 +211,24 @@ export async function unwrapDekWithFolderKey(
     params,
   });
 }
+
+/**
+ * Share a folder key with another user
+ * Unwraps the folder key with current user's private key, then wraps it with recipient's public key
+ * This is similar to shareFileKey but for folder keys
+ */
+export async function shareFolderKey(
+  wrappedFolderKey: string,
+  userPublicKey: string,
+  userPrivateKey: string,
+  recipientPublicKey: string
+): Promise<string> {
+  // Use the same share_file_key command since both keys are 32 bytes and use the same wrapping mechanism
+  return await invoke<string>("share_file_key", {
+    wrappedDek: wrappedFolderKey,
+    userPublicKey,
+    userPrivateKey,
+    recipientPublicKey,
+  });
+}
+

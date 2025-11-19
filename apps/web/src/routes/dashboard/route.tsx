@@ -8,13 +8,20 @@ import {
   Settings,
   HelpCircle,
   Menu,
+  SearchIcon,
 } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
 import UserMenu from "@/components/user-menu";
-import { createFileRoute, Outlet, Link, useRouterState } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  Link,
+  useRouterState,
+} from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { ButtonGroup } from "@/components/ui/button-group";
 
 type SidebarItemProps = {
   icon: React.ComponentType<{ size?: number }>;
@@ -39,9 +46,9 @@ function SidebarItem({ icon: Icon, label, to }: SidebarItemProps) {
   );
 }
 
-export const Route = createFileRoute('/dashboard')({
+export const Route = createFileRoute("/dashboard")({
   component: RouteComponent,
-})
+});
 
 function RouteComponent() {
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
@@ -61,18 +68,24 @@ function RouteComponent() {
               <Menu className="h-6 w-6" />
             </Button>
             <div className="flex items-center gap-3">
-              <img src="/web_logo.svg" alt="KryptVault Logo" width={30} height={30} className="invert dark:invert-0"/>
+              <img
+                src="/web_logo.svg"
+                alt="KryptVault Logo"
+                width={30}
+                height={30}
+                className="invert dark:invert-0"
+              />
               <h1 className="text-xl font-bold hidden sm:block">Krypt Vault</h1>
             </div>
           </div>
 
           {/* Search */}
-          <div className="hidden md:block flex-1 max-w-md">
-            <Input
-              type="text"
-              placeholder="Search..."
-            />
-          </div>
+          <ButtonGroup>
+            <Input placeholder="Search..." className="w-lg"/>
+            <Button variant="outline" aria-label="Search">
+              <SearchIcon />
+            </Button>
+          </ButtonGroup>
 
           {/* Right actions */}
           <div className="flex items-center gap-3">
@@ -102,18 +115,42 @@ function RouteComponent() {
               </h2>
               <div className="space-y-2">
                 <SidebarItem icon={Home} label="Dashboard" to="/dashboard" />
-                <SidebarItem icon={Folder} label="My Files" to="/dashboard/my-files" />
-                <SidebarItem icon={Share2} label="Shared" to="/dashboard/shared" />
-                <SidebarItem icon={FileQuestion} label="Requests" to="/dashboard/requests" />
-                <SidebarItem icon={Trash2} label="Trash Bin" to="/dashboard/trash-bin" />
+                <SidebarItem
+                  icon={Folder}
+                  label="My Files"
+                  to="/dashboard/my-files"
+                />
+                <SidebarItem
+                  icon={Share2}
+                  label="Shared"
+                  to="/dashboard/shared"
+                />
+                <SidebarItem
+                  icon={FileQuestion}
+                  label="Requests"
+                  to="/dashboard/requests"
+                />
+                <SidebarItem
+                  icon={Trash2}
+                  label="Trash Bin"
+                  to="/dashboard/trash-bin"
+                />
               </div>
             </div>
           </nav>
 
           {/* Bottom Menu */}
           <div className="border-t border-border p-5 space-y-2">
-            <SidebarItem icon={Settings} label="Settings" to="/dashboard/settings" />
-            <SidebarItem icon={HelpCircle} label="Help & Guide" to="/dashboard/help-guide" />
+            <SidebarItem
+              icon={Settings}
+              label="Settings"
+              to="/dashboard/settings"
+            />
+            <SidebarItem
+              icon={HelpCircle}
+              label="Help & Guide"
+              to="/dashboard/help-guide"
+            />
           </div>
         </aside>
 

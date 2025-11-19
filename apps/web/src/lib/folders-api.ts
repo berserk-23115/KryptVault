@@ -48,6 +48,21 @@ export interface Folder {
   createdAt: Date;
 }
 
+export interface SharedFolder extends Folder {
+  ownerEmail: string;
+  sharedBy: string;
+  sharedAt: Date;
+}
+
+export interface SharedFolderRecord {
+  folderId: string;
+  folderName: string;
+  recipientUserId: string;
+  recipientName: string;
+  recipientEmail: string;
+  sharedAt: Date;
+}
+
 export interface FolderFile {
   fileId: string;
   originalFilename: string;
@@ -257,3 +272,72 @@ export async function getFolderAccessList(folderId: string): Promise<{
 
   return response.json();
 }
+
+/**
+ * Delete a folder
+ */
+export async function deleteFolder(folderId: string): Promise<void> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("bearer_token") : null;
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  
+  const response = await fetch(`${API_URL}/api/folders/${folderId}`, {
+    method: "DELETE",
+    headers,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to delete folder");
+  }
+}
+
+/**
+ * Get folders shared with the current user (not owned by user)
+ */
+export async function getSharedWithMeFolders(): Promise<SharedFolder[]> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("bearer_token") : null;
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  
+  const response = await fetch(`${API_URL}/api/folders/shared/with-me`, {
+    headers,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch shared folders");
+  }
+
+  const data = await response.json();
+  return data.folders;
+}
+
+/**
+ * Get folders shared by the current user with others
+ */
+export async function getSharedByMeFolders(): Promise<SharedFolderRecord[]> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("bearer_token") : null;
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  
+  const response = await fetch(`${API_URL}/api/folders/shared/by-me`, {
+    headers,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch folders shared by me");
+  }
+
+  const data = await response.json();
+  return data.shares;
+}
+

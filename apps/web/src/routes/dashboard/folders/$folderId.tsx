@@ -222,7 +222,9 @@ function RouteComponent() {
     return (
       <main className="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white p-8">
         <div className="text-center py-12">
-          <p className="text-neutral-500 dark:text-neutral-400">Loading folder...</p>
+          <p className="text-neutral-500 dark:text-neutral-400">
+            Loading folder...
+          </p>
         </div>
       </main>
     );
@@ -251,18 +253,18 @@ function RouteComponent() {
         {/* Header with Back Button */}
         <div className="flex items-start justify-between mb-8">
           <div className="flex items-center gap-4">
-            <button
+            <Button
               onClick={() => navigate({ to: "/dashboard/my-files" })}
-              className="p-2 hover:bg-neutral-800 rounded-lg transition"
+              variant={"ghost"}
             >
               <ArrowLeft className="h-5 w-5" />
-            </button>
+            </Button>
             <div>
-              <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 mb-2">
+              {/* <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 mb-2">
                 <span>My Files</span>
                 <ChevronRight className="h-4 w-4" />
                 <span className="text-neutral-900 dark:text-white">{folderDetails.folder.name}</span>
-              </div>
+              </div> */}
               <h1 className="text-4xl font-bold text-neutral-900 dark:text-white">
                 {folderDetails.folder.name}
               </h1>
@@ -272,27 +274,15 @@ function RouteComponent() {
               </p>
             </div>
           </div>
-          <Button className="bg-neutral-800 hover:bg-neutral-700 gap-2">
-            <Plus className="h-4 w-4" />
-            Add Files
-          </Button>
-        </div>
-
-        {/* Filters */}
-        <div className="mb-8 flex gap-2">
-          <Button
-            variant="outline"
-            className="bg-neutral-100 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800 gap-2"
-          >
-            <Filter className="h-4 w-4" />
-            Filters
-          </Button>
-
           <ButtonGroup className="ml-auto">
             <Button
               onClick={() => setViewMode("list")}
               variant={viewMode === "list" ? "default" : "outline"}
-              className={`gap-2 ${viewMode === "list" ? "bg-purple-600 hover:bg-purple-700" : "bg-neutral-100 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800"}`}
+              className={`gap-2 ${
+                viewMode === "list"
+                  ? "bg-purple-600 hover:bg-purple-700"
+                  : "bg-neutral-100 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800"
+              }`}
             >
               <List className="h-4 w-4" />
               List
@@ -300,7 +290,11 @@ function RouteComponent() {
             <Button
               onClick={() => setViewMode("grid")}
               variant={viewMode === "grid" ? "default" : "outline"}
-              className={`gap-2 ${viewMode === "grid" ? "bg-purple-600 hover:bg-purple-700" : "bg-neutral-100 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800"}`}
+              className={`gap-2 ${
+                viewMode === "grid"
+                  ? "bg-purple-600 hover:bg-purple-700"
+                  : "bg-neutral-100 dark:bg-neutral-900 border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-800"
+              }`}
             >
               <Grid3x3 className="h-4 w-4" />
               Grid
@@ -339,9 +333,9 @@ function RouteComponent() {
                     <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
                       Name
                     </th>
-                    <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
+                    {/* <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
                       File Type
-                    </th>
+                    </th> */}
                     <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
                       Size
                     </th>
@@ -384,9 +378,9 @@ function RouteComponent() {
                           </span>
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-neutral-600 dark:text-neutral-400">
+                      {/* <td className="py-4 px-4 text-neutral-600 dark:text-neutral-400">
                         {file.mimeType || "File"}
-                      </td>
+                      </td> */}
                       <td className="py-4 px-4 text-neutral-600 dark:text-neutral-400">
                         {formatFileSize(file.fileSize)}
                       </td>
