@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, bigint, integer } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 
 export const file = pgTable("file", {
@@ -28,6 +28,11 @@ export const file = pgTable("file", {
 	// Timestamps
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 	updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	
+	// Trash/soft delete fields
+	deletedAt: timestamp("deleted_at"), // When file was moved to trash
+	deletedBy: text("deleted_by").references(() => user.id), // Who deleted it
+	scheduledDeletionAt: timestamp("scheduled_deletion_at"), // When to permanently delete
 	
 	// Optional: Add tags, description, etc.
 	description: text("description"),
@@ -108,4 +113,20 @@ export const fileFolderKey = pgTable("file_folder_key", {
 	wrappingNonce: text("wrapping_nonce").notNull(), // Nonce for wrapping encryption
 	
 	createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// User settings for trash and other preferences
+export const userSettings = pgTable("user_settings", {
+	id: text("id").primaryKey(),
+	userId: text("user_id")
+		.notNull()
+		.unique()
+		.references(() => user.id, { onDelete: "cascade" }),
+	
+	// Trash auto-deletion settings (in days)
+	// 0 = never auto-delete, positive number = delete after N days
+	trashRetentionDays: integer("trash_retention_days").notNull().default(30),
+	
+	createdAt: timestamp("created_at").notNull().defaultNow(),
+	updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

@@ -8,6 +8,7 @@ import filesRouter from "./routes/files";
 import usersRouter from "./routes/users";
 import sharingRouter from "./routes/sharing";
 import foldersRouter from "./routes/folders";
+import settingsRouter from "./routes/settings";
 
 const app = new Hono({ strict: false }); // Disable strict mode to handle trailing slashes
 
@@ -57,6 +58,7 @@ app.route("/api/files", filesRouter);
 app.route("/api/users", usersRouter);
 app.route("/api/sharing", sharingRouter);
 app.route("/api/folders", foldersRouter);
+app.route("/api/settings", settingsRouter);
 
 app.get("/", (c) => {
 	return c.text("OK");
