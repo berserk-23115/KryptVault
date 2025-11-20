@@ -2,7 +2,7 @@ import { authClient } from "@/lib/auth-client";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { filesApi, type FileMetadata } from "@/lib/files-api";
+import { filesApi, type FileMetadata, type StorageUsage } from "@/lib/files-api";
 import { save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { FileSidebar } from "@/components/FileSidebar";
@@ -72,6 +72,7 @@ function RouteComponent() {
   const [selectedFile, setSelectedFile] = React.useState<FileMetadata | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const [storageUsage, setStorageUsage] = React.useState<StorageUsage | null>(null);
 
   const { hasKeypair, checking: checkingKeypair, recheckKeypair } = useKeypairCheck();
   const [showKeypairSetup, setShowKeypairSetup] = React.useState(false);
@@ -101,8 +102,18 @@ function RouteComponent() {
     }
   };
 
+  const loadStorageUsage = async () => {
+    try {
+      const usage = await filesApi.getStorageUsage();
+      setStorageUsage(usage);
+    } catch (err) {
+      console.error("Failed to load storage usage:", err);
+    }
+  };
+
   React.useEffect(() => {
     loadFiles();
+    loadStorageUsage();
   }, []);
 
   // --- Download / Preview / Delete Logic (unchanged) ---
@@ -294,6 +305,7 @@ const handlePreview = async (file: FileMetadata) => {
       setError(null);
       await filesApi.deleteFile(file.id);
       await loadFiles();
+      await loadStorageUsage(); // Refresh storage usage
       setSelectedFile(null);
       
       toast.success("File deleted", {
@@ -320,19 +332,66 @@ const handlePreview = async (file: FileMetadata) => {
         <div className="w-full rounded-xl p-6 shadow-lg border 
           border-neutral-300 dark:border-neutral-700 
           bg-white/50 dark:bg-white/10 backdrop-blur-xl">
-          <h2 className="text-xl font-semibold mb-4">Storage</h2>
-          <div className="w-full h-4 rounded-full overflow-hidden flex bg-neutral-200 dark:bg-neutral-700">
-            <div className="bg-blue-500" style={{ width: "10%" }} />
-            <div className="bg-red-500" style={{ width: "20%" }} />
-            <div className="bg-green-500" style={{ width: "15%" }} />
-            <div className="bg-yellow-500" style={{ width: "55%" }} />
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Storage</h2>
+            {storageUsage && (
+              <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                {formatFileSize(storageUsage.usedBytes)} / {formatFileSize(storageUsage.quotaBytes)}
+                {" "}({storageUsage.usedPercentage.toFixed(1)}% used)
+              </span>
+            )}
           </div>
-          <div className="flex gap-8 mt-4 text-sm">
-            <Legend color="bg-blue-500" label="Images (10%)" />
-            <Legend color="bg-red-500" label="Videos (20%)" />
-            <Legend color="bg-green-500" label="Documents (15%)" />
-            <Legend color="bg-yellow-500" label="Others (55%)" />
-          </div>
+          
+          {storageUsage ? (
+            <>
+              <div className="w-full h-4 rounded-full overflow-hidden flex bg-neutral-200 dark:bg-neutral-700">
+                {storageUsage.breakdown.images > 0 && (
+                  <div 
+                    className="bg-blue-500" 
+                    style={{ width: `${(storageUsage.breakdown.images / storageUsage.quotaBytes) * 100}%` }} 
+                  />
+                )}
+                {storageUsage.breakdown.videos > 0 && (
+                  <div 
+                    className="bg-red-500" 
+                    style={{ width: `${(storageUsage.breakdown.videos / storageUsage.quotaBytes) * 100}%` }} 
+                  />
+                )}
+                {storageUsage.breakdown.documents > 0 && (
+                  <div 
+                    className="bg-green-500" 
+                    style={{ width: `${(storageUsage.breakdown.documents / storageUsage.quotaBytes) * 100}%` }} 
+                  />
+                )}
+                {storageUsage.breakdown.others > 0 && (
+                  <div 
+                    className="bg-yellow-500" 
+                    style={{ width: `${(storageUsage.breakdown.others / storageUsage.quotaBytes) * 100}%` }} 
+                  />
+                )}
+              </div>
+              <div className="flex gap-8 mt-4 text-sm">
+                <Legend 
+                  color="bg-blue-500" 
+                  label={`Images (${((storageUsage.breakdown.images / storageUsage.quotaBytes) * 100).toFixed(1)}%)`} 
+                />
+                <Legend 
+                  color="bg-red-500" 
+                  label={`Videos (${((storageUsage.breakdown.videos / storageUsage.quotaBytes) * 100).toFixed(1)}%)`} 
+                />
+                <Legend 
+                  color="bg-green-500" 
+                  label={`Documents (${((storageUsage.breakdown.documents / storageUsage.quotaBytes) * 100).toFixed(1)}%)`} 
+                />
+                <Legend 
+                  color="bg-yellow-500" 
+                  label={`Others (${((storageUsage.breakdown.others / storageUsage.quotaBytes) * 100).toFixed(1)}%)`} 
+                />
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-4 text-neutral-500">Loading storage info...</div>
+          )}
         </div>
 
         {/* File Upload */}

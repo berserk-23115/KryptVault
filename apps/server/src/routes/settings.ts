@@ -600,4 +600,132 @@ app.post("/recovery/reset-password", async (c) => {
 	}
 });
 
+// DELETE /api/settings/account - Delete user account and all associated data
+app.delete("/account", async (c) => {
+	try {
+		const userId = (c as any).get("userId") as string;
+		
+		console.log("🗑️ Deleting account for user:", userId);
+		
+		// Import necessary schemas
+		const { 
+			user: userSchema, 
+			file: fileSchema, 
+			folder: folderSchema,
+			userKeypair: userKeypairSchema,
+			session: sessionSchema,
+			account: accountSchema,
+			verification: verificationSchema,
+			fileKey: fileKeySchema,
+			folderKey: folderKeySchema,
+			fileFolderKey: fileFolderKeySchema,
+		} = await import("@krypt-vault/db");
+		
+		const { DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+		const { s3Client } = await import("../lib/s3");
+		
+		// 1. Get all files owned by the user (to delete from S3)
+		const userFiles = await db
+			.select()
+			.from(fileSchema)
+			.where(eq(fileSchema.userId, userId));
+		
+		console.log(`📁 Found ${userFiles.length} files to delete from S3`);
+		
+		// 2. Delete all files from S3
+		for (const file of userFiles) {
+			try {
+				await s3Client.send(new DeleteObjectCommand({
+					Bucket: file.s3Bucket,
+					Key: file.s3Key,
+				}));
+				console.log(`✅ Deleted S3 object: ${file.s3Key}`);
+			} catch (error) {
+				console.error(`❌ Failed to delete S3 object ${file.s3Key}:`, error);
+				// Continue with deletion even if S3 deletion fails
+			}
+		}
+		
+		// 3. Delete all file-folder associations (must be before files)
+		await db
+			.delete(fileFolderKeySchema)
+			.where(
+				sql`file_id IN (SELECT id FROM ${fileSchema} WHERE user_id = ${userId})`
+			);
+		console.log("✅ Deleted file-folder associations");
+		
+		// 4. Delete all file keys (shared access records) - both given and received
+		await db.delete(fileKeySchema).where(eq(fileKeySchema.recipientUserId, userId));
+		await db.delete(fileKeySchema).where(
+			sql`file_id IN (SELECT id FROM ${fileSchema} WHERE user_id = ${userId})`
+		);
+		console.log("✅ Deleted file keys");
+		
+		// 5. Delete all files owned by user
+		await db.delete(fileSchema).where(eq(fileSchema.userId, userId));
+		console.log("✅ Deleted files");
+		
+		// 6. Delete all folder keys - both given and received
+		await db.delete(folderKeySchema).where(eq(folderKeySchema.recipientUserId, userId));
+		await db.delete(folderKeySchema).where(
+			sql`folder_id IN (SELECT id FROM ${folderSchema} WHERE owner_id = ${userId})`
+		);
+		console.log("✅ Deleted folder keys");
+		
+		// 7. Delete all folders owned by user
+		await db.delete(folderSchema).where(eq(folderSchema.ownerId, userId));
+		console.log("✅ Deleted folders");
+		
+		// 8. Delete user settings
+		await db.delete(userSettings).where(eq(userSettings.userId, userId));
+		console.log("✅ Deleted user settings");
+		
+		// 9. Delete security questions
+		await db.delete(securityQuestion).where(eq(securityQuestion.userId, userId));
+		console.log("✅ Deleted security questions");
+		
+		// 10. Delete user keypair
+		await db.delete(userKeypairSchema).where(eq(userKeypairSchema.userId, userId));
+		console.log("✅ Deleted user keypair");
+		
+		// 11. Delete all verification tokens for this user
+		const [user] = await db
+			.select({ email: userSchema.email })
+			.from(userSchema)
+			.where(eq(userSchema.id, userId))
+			.limit(1);
+		
+		if (user?.email) {
+			await db.delete(verificationSchema).where(eq(verificationSchema.identifier, user.email));
+			console.log("✅ Deleted verification tokens");
+		}
+		
+		// 12. Delete all sessions
+		await db.delete(sessionSchema).where(eq(sessionSchema.userId, userId));
+		console.log("✅ Deleted sessions");
+		
+		// 13. Delete account record (contains password hash)
+		await db.delete(accountSchema).where(eq(accountSchema.userId, userId));
+		console.log("✅ Deleted account");
+		
+		// 14. Finally, delete the user record (this will cascade to any remaining references)
+		await db.delete(userSchema).where(eq(userSchema.id, userId));
+		console.log("✅ Deleted user record");
+		
+		console.log("🎉 Account deletion completed successfully");
+		
+		return c.json({ 
+			success: true,
+			message: "Account deleted successfully",
+			deletedFiles: userFiles.length,
+		});
+	} catch (error) {
+		console.error("❌ Delete account error:", error);
+		return c.json({ 
+			error: "Failed to delete account",
+			details: error instanceof Error ? error.message : String(error)
+		}, 500);
+	}
+});
+
 export default app;

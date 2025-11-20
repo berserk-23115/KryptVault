@@ -55,7 +55,7 @@ export default function SignInForm({
           {
             email: value.email,
             password: value.password,
-            rememberMe: value.remember
+            rememberMe: value.remember,
           },
           {
             onSuccess: () => {
@@ -91,9 +91,7 @@ export default function SignInForm({
   // Show forgot password form
   if (showForgotPassword) {
     return (
-      <ForgotPasswordForm
-        onBackToSignIn={() => setShowForgotPassword(false)}
-      />
+      <ForgotPasswordForm onBackToSignIn={() => setShowForgotPassword(false)} />
     );
   }
 
@@ -159,7 +157,9 @@ export default function SignInForm({
               />
               {field.state.meta.errors.length > 0 && (
                 <p className="text-red-500 dark:text-red-400 text-sm mt-1">
-                  {field.state.meta.errors.map((error) => getErrorMessage(error)).join(", ")}
+                  {field.state.meta.errors
+                    .map((error) => getErrorMessage(error))
+                    .join(", ")}
                 </p>
               )}
             </div>
@@ -170,12 +170,21 @@ export default function SignInForm({
         <form.Field name="password">
           {(field) => (
             <div>
-              <Label
-                htmlFor={field.name}
-                className="text-sm font-medium mb-1.5 block"
-              >
-                Password
-              </Label>
+              <div className="flex items-center justify-between mb-1.5">
+                <Label
+                  htmlFor={field.name}
+                  className="text-sm font-medium mb-1.5 block"
+                >
+                  Password
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <div className="relative">
                 <Input
                   id={field.name}
@@ -201,38 +210,16 @@ export default function SignInForm({
               </div>
               {field.state.meta.errors.length > 0 && (
                 <p className="text-red-500 dark:text-red-400 text-sm mt-2">
-                  {field.state.meta.errors.map((error) => getErrorMessage(error)).join(", ")}
+                  {field.state.meta.errors
+                    .map((error) => getErrorMessage(error))
+                    .join(", ")}
                 </p>
               )}
             </div>
           )}
         </form.Field>
 
-        {/* Remember me + Forgot password */}
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="remember"
-              className=""
-              onCheckedChange={(checked) =>
-                form.setFieldValue("remember", checked === true)
-              }
-            />
-            <Label
-              htmlFor="remember"
-              className="text-gray-700 dark:text-gray-300 cursor-pointer"
-            >
-              Remember me
-            </Label>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowForgotPassword(true)}
-            className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium"
-          >
-            Forgot password?
-          </button>
-        </div>
+      
 
         {/* Sign In button */}
         <form.Subscribe>
@@ -258,7 +245,6 @@ export default function SignInForm({
         >
           Cancel
         </Button>
-
       </form>
     </div>
   );

@@ -1089,8 +1089,25 @@ function RouteComponent() {
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      onClick={() => {
-                        toast.error("Account deletion is not yet implemented");
+                      onClick={async () => {
+                        try {
+                          const result = await settingsApi.deleteAccount();
+                          toast.success(`Account deleted successfully. ${result.deletedFiles} files removed.`);
+                          
+                          // Sign out and redirect to login
+                          await authClient.signOut();
+                          
+                          // Clear local storage
+                          if (typeof window !== "undefined") {
+                            localStorage.clear();
+                          }
+                          
+                          // Redirect to login page
+                          window.location.href = "/login";
+                        } catch (err: any) {
+                          console.error("Failed to delete account:", err);
+                          toast.error(err?.message || "Failed to delete account");
+                        }
                       }}
                     >
                       Delete Account

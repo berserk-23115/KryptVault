@@ -228,6 +228,23 @@ class SettingsApiClient {
       }
     );
   }
+
+  /**
+   * Delete user account and all associated data
+   */
+  async deleteAccount(): Promise<{ success: boolean; message: string; deletedFiles: number }> {
+    const response = await this.request<{ 
+      success: boolean; 
+      message: string; 
+      deletedFiles: number 
+    }>(
+      "/account",
+      {
+        method: "DELETE",
+      }
+    );
+    return response;
+  }
 }
 
 export const settingsApi = new SettingsApiClient();

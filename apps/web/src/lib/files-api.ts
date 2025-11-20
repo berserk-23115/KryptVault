@@ -51,6 +51,19 @@ export interface DownloadResponse {
   mimeType?: string;
 }
 
+export interface StorageUsage {
+  usedBytes: number;
+  quotaBytes: number;
+  usedPercentage: number;
+  breakdown: {
+    images: number;
+    videos: number;
+    documents: number;
+    others: number;
+  };
+}
+
+
 class FilesApiClient {
   private baseUrl: string;
   private userId: string | null = null;
@@ -195,6 +208,13 @@ class FilesApiClient {
     await this.request(`/${fileId}/permanent`, {
       method: "DELETE",
     });
+  }
+
+  /**
+   * Get storage usage statistics
+   */
+  async getStorageUsage(): Promise<StorageUsage> {
+    return this.request<StorageUsage>("/storage-usage");
   }
 }
 
