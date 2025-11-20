@@ -649,9 +649,9 @@ function RouteComponent() {
           onDownload={() => handleDownload(selectedFile)}
           onDelete={() => handleDelete(selectedFile)}
           onShare={() => handleShareFile(selectedFile)}
-          ownerName={session.data?.user?.name || session.data?.user?.email || "Unknown"}
+          ownerName={selectedFile.ownerName || selectedFile.ownerEmail || "Unknown"}
           showShareButton={true}
-          isSharedFile={false}
+          isSharedFile={selectedFile.isOwner === false}
         />
       )}
 
@@ -690,6 +690,7 @@ function RouteComponent() {
           fileId={fileToShare.id}
           fileName={fileToShare.originalFilename}
           wrappedDek={fileToShare.wrappedDek || ""}
+          currentUserId={session.data?.user?.id}
           onShareComplete={() => {
             loadData();
             setShareFileDialogOpen(false);

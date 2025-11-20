@@ -253,13 +253,19 @@ app.get("/shared-with-me", async (c) => {
 				sharedBy: user.name,
 				sharedByEmail: user.email,
 				sharedAt: fileKey.createdAt,
+				sharedById: fileKey.sharedBy,
 			})
 			.from(fileKey)
 			.innerJoin(file, eq(fileKey.fileId, file.id))
 			.innerJoin(user, eq(fileKey.sharedBy, user.id))
 			.where(eq(fileKey.recipientUserId, userId));
 		
-		return c.json({ files: sharedFiles });
+		// Filter out files where the user shared with themselves
+		const filteredFiles = sharedFiles.filter(
+			file => file.sharedById !== userId
+		);
+		
+		return c.json({ files: filteredFiles });
 	} catch (error) {
 		console.error("List shared files error:", error);
 		return c.json({ error: "Failed to list shared files" }, 500);
@@ -285,7 +291,12 @@ app.get("/shared-by-me", async (c) => {
 			.innerJoin(user, eq(fileKey.recipientUserId, user.id))
 			.where(eq(fileKey.sharedBy, userId));
 		
-		return c.json({ shares: sharedFiles });
+		// Filter out shares where the user shared with themselves
+		const filteredShares = sharedFiles.filter(
+			share => share.recipientUserId !== userId
+		);
+		
+		return c.json({ shares: filteredShares });
 	} catch (error) {
 		console.error("List shared by me error:", error);
 		return c.json({ error: "Failed to list shares" }, 500);

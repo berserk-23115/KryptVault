@@ -17,6 +17,8 @@ export interface FileMetadata {
   tags?: string[];
   folderId?: string;
   isOwner?: boolean; // Whether current user owns the file
+  ownerName?: string; // Name of the file owner
+  ownerEmail?: string; // Email of the file owner
   deletedAt?: Date; // When file was moved to trash
   deletedBy?: string; // Who deleted it
   scheduledDeletionAt?: Date; // When to permanently delete

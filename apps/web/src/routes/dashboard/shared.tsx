@@ -62,6 +62,9 @@ function RouteComponent() {
   );
   const [selectedFolder, setSelectedFolder] =
     React.useState<SharedFolder | null>(null);
+  // State for "Shared By Me" tab selections
+  const [selectedSharedByMeFile, setSelectedSharedByMeFile] = React.useState<ShareRecord | null>(null);
+  const [selectedSharedByMeFolder, setSelectedSharedByMeFolder] = React.useState<SharedFolderRecord | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<"grid" | "list">("grid");
 
@@ -70,35 +73,20 @@ function RouteComponent() {
       setLoading(true);
       setError(null);
 
-      // Load shared with me files
+      // Load shared with me files (backend already filters out self-shares)
       const filesSharedWithMe = await getSharedWithMe();
+      setSharedWithMeFiles(filesSharedWithMe);
 
-      // Filter out files where the current user is the one who shared it
-      // These should be files shared by OTHER users only
-      const currentUserEmail = session?.data?.user?.email;
-      const sharedFilesFromOthers = filesSharedWithMe.filter(
-        (file) => file.sharedByEmail !== currentUserEmail
-      );
-
-      console.log("All files:", filesSharedWithMe);
-      console.log("Current user email:", currentUserEmail);
-      console.log("Filtered files:", sharedFilesFromOthers);
-
-      setSharedWithMeFiles(sharedFilesFromOthers);
-
-      // Load shared by me records
+      // Load shared by me records (backend already filters out self-shares)
       const filesSharedByMe = await getSharedByMe();
       setSharedByMeRecords(filesSharedByMe);
-      console.log("Files shared by me:", filesSharedByMe);
 
       // Load shared folders
       const foldersSharedWithMe = await getSharedWithMeFolders();
       setSharedWithMeFolders(foldersSharedWithMe);
-      console.log("Folders shared with me:", foldersSharedWithMe);
 
       const foldersSharedByMe = await getSharedByMeFolders();
       setSharedByMeFolderRecords(foldersSharedByMe);
-      console.log("Folders shared by me:", foldersSharedByMe);
     } catch (err) {
       console.error("Failed to load shared files:", err);
       const errorMsg =
@@ -117,11 +105,29 @@ function RouteComponent() {
   const handleFileClick = (file: SharedFile) => {
     setSelectedFile(file);
     setSelectedFolder(null); // Clear folder selection when selecting a file
+    setSelectedSharedByMeFile(null);
+    setSelectedSharedByMeFolder(null);
   };
 
   const handleFolderClick = (folder: SharedFolder) => {
     setSelectedFolder(folder);
     setSelectedFile(null); // Clear file selection when selecting a folder
+    setSelectedSharedByMeFile(null);
+    setSelectedSharedByMeFolder(null);
+  };
+
+  const handleSharedByMeFileClick = (shareRecord: ShareRecord) => {
+    setSelectedSharedByMeFile(shareRecord);
+    setSelectedFile(null);
+    setSelectedFolder(null);
+    setSelectedSharedByMeFolder(null);
+  };
+
+  const handleSharedByMeFolderClick = (shareRecord: SharedFolderRecord) => {
+    setSelectedSharedByMeFolder(shareRecord);
+    setSelectedFile(null);
+    setSelectedFolder(null);
+    setSelectedSharedByMeFile(null);
   };
 
   const handleFileDoubleClick = async (file: SharedFile) => {
@@ -391,6 +397,42 @@ function RouteComponent() {
     };
   };
 
+  // Convert ShareRecord to FileMetadata for "Shared By Me" sidebar
+  const convertShareRecordToFileMetadata = (share: ShareRecord): FileMetadata => {
+    return {
+      id: share.fileId,
+      fileId: share.fileId,
+      originalFilename: share.originalFilename,
+      mimeType: undefined,
+      fileSize: 0, // Not available in ShareRecord
+      createdAt: share.sharedAt,
+      updatedAt: share.sharedAt,
+      userId: session.data?.user?.id || "",
+      s3Key: "",
+      s3Bucket: "",
+      nonce: "",
+      wrappedDek: "",
+      description: undefined,
+      tags: undefined,
+      folderId: undefined,
+      isOwner: true, // User is the owner for "Shared By Me"
+    };
+  };
+
+  // Convert SharedFolderRecord to Folder for "Shared By Me" sidebar
+  const convertSharedFolderRecordToFolder = (share: SharedFolderRecord): Folder => {
+    return {
+      folderId: share.folderId,
+      name: share.folderName,
+      description: null,
+      parentFolderId: null,
+      ownerId: session.data?.user?.id || "",
+      ownerName: session.data?.user?.name || "",
+      wrappedFolderKey: "",
+      createdAt: share.sharedAt,
+    };
+  };
+
   return (
     <main className="flex h-full overflow-hidden">
       {/* Main Content Area */}
@@ -632,7 +674,13 @@ function RouteComponent() {
                   {sharedByMeFolderRecords.map((share) => (
                     <div
                       key={`${share.folderId}-${share.recipientUserId}`}
-                      className="bg-neutral-100 dark:bg-neutral-900 rounded-lg p-4 border border-neutral-300 dark:border-neutral-800 hover:border-purple-400 dark:hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-800/50 transition group"
+                      onClick={() => handleSharedByMeFolderClick(share)}
+                      className={`bg-neutral-100 dark:bg-neutral-900 rounded-lg p-4 border ${
+                        selectedSharedByMeFolder?.folderId === share.folderId &&
+                        selectedSharedByMeFolder?.recipientUserId === share.recipientUserId
+                          ? "border-purple-500 ring-2 ring-purple-500"
+                          : "border-neutral-300 dark:border-neutral-800"
+                      } hover:border-purple-400 dark:hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-800/50 transition cursor-pointer group`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3 flex-1">
@@ -700,7 +748,13 @@ function RouteComponent() {
                       {sharedByMeRecords.map((share) => (
                         <tr
                           key={`${share.fileId}-${share.recipientUserId}`}
-                          className="border-b border-neutral-300 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition"
+                          onClick={() => handleSharedByMeFileClick(share)}
+                          className={`border-b border-neutral-300 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition cursor-pointer ${
+                            selectedSharedByMeFile?.fileId === share.fileId &&
+                            selectedSharedByMeFile?.recipientUserId === share.recipientUserId
+                              ? "bg-purple-100 dark:bg-purple-600/20"
+                              : ""
+                          }`}
                         >
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
@@ -736,7 +790,13 @@ function RouteComponent() {
                   {sharedByMeRecords.map((share) => (
                     <div
                       key={`${share.fileId}-${share.recipientUserId}`}
-                      className="rounded-xl overflow-hidden shadow-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-purple-900/20 hover:scale-[1.02] hover:shadow-lg transition"
+                      onClick={() => handleSharedByMeFileClick(share)}
+                      className={`rounded-xl overflow-hidden shadow-md border ${
+                        selectedSharedByMeFile?.fileId === share.fileId &&
+                        selectedSharedByMeFile?.recipientUserId === share.recipientUserId
+                          ? "border-purple-500 ring-2 ring-purple-500"
+                          : "border-neutral-300 dark:border-neutral-700"
+                      } bg-white dark:bg-purple-900/20 hover:scale-[1.02] hover:shadow-lg transition cursor-pointer`}
                     >
                       <div className="h-36 w-full bg-linear-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
                         <span className="text-6xl">
@@ -771,13 +831,13 @@ function RouteComponent() {
           onClose={() => setSelectedFile(null)}
           onPreview={(file) => handlePreview(selectedFile)}
           onDownload={(file) => handleDownload(selectedFile)}
-          ownerName={selectedFile.sharedByEmail}
+          ownerName={selectedFile.sharedBy}
           showShareButton={false}
           isSharedFile={true}
         />
       )}
 
-      {/* Folder Sidebar */}
+      {/* Folder Sidebar for "Shared With Me" */}
       {selectedFolder && (
         <FolderSidebar
           folder={selectedFolder as any}
@@ -790,6 +850,33 @@ function RouteComponent() {
           showDeleteButton={false}
           showDownloadButton={true}
           showOpenButton={true}
+        />
+      )}
+
+      {/* File Sidebar for "Shared By Me" */}
+      {selectedSharedByMeFile && (
+        <FileSidebar
+          file={convertShareRecordToFileMetadata(selectedSharedByMeFile)}
+          onClose={() => setSelectedSharedByMeFile(null)}
+          ownerName={selectedSharedByMeFile.recipientName}
+          showShareButton={false}
+          isSharedFile={false}
+          sharedByMe={true}
+        />
+      )}
+
+      {/* Folder Sidebar for "Shared By Me" */}
+      {selectedSharedByMeFolder && (
+        <FolderSidebar
+          folder={convertSharedFolderRecordToFolder(selectedSharedByMeFolder) as any}
+          onClose={() => setSelectedSharedByMeFolder(null)}
+          onOpenFolder={() => navigate({ to: `/dashboard/folders/${selectedSharedByMeFolder.folderId}` })}
+          ownerName={selectedSharedByMeFolder.recipientName}
+          showShareButton={false}
+          showDeleteButton={false}
+          showDownloadButton={false}
+          showOpenButton={true}
+          sharedByMe={true}
         />
       )}
     </main>

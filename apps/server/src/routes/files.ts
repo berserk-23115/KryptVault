@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { db, file, fileKey, userSettings } from "@krypt-vault/db";
+import { db, file, fileKey, userSettings, user } from "@krypt-vault/db";
 import { eq, and, desc, sql } from "@krypt-vault/db";
 import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -235,10 +235,13 @@ app.get("/", async (c) => {
 				tags: file.tags,
 				folderId: file.folderId,
 				wrappedDek: fileKey.wrappedDek,
-				isOwner: eq(file.userId, userId),
+				isOwner: sql<boolean>`${file.userId} = ${userId}`,
+				ownerName: user.name,
+				ownerEmail: user.email,
 			})
 			.from(fileKey)
 			.innerJoin(file, eq(fileKey.fileId, file.id))
+			.innerJoin(user, eq(file.userId, user.id))
 			.where(
 				and(
 					eq(fileKey.recipientUserId, userId),

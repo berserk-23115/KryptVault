@@ -33,6 +33,7 @@ interface FileSidebarProps {
   ownerName?: string;
   showShareButton?: boolean;
   isSharedFile?: boolean;
+  sharedByMe?: boolean; // New prop to indicate this is shown in "Shared By Me" section
 }
 
 export function FileSidebar({
@@ -45,18 +46,19 @@ export function FileSidebar({
   ownerName,
   showShareButton = true,
   isSharedFile = false,
+  sharedByMe = false,
 }: FileSidebarProps) {
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false);
   if (!file) return null;
 
   return (
-    <aside className="w-96 border-l border-border bg-card flex flex-col overflow-y-auto">
+    <aside className="w-96 border-l border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-950 flex flex-col overflow-y-auto">
       <div className="p-6 flex flex-col h-full">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <FileIcon className="h-5 w-5 shrink-0" />
-            <h2 className="text-lg font-semibold truncate">
+            <FileIcon className="h-5 w-5 text-neutral-700 dark:text-neutral-300 shrink-0" />
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white truncate">
               {file.originalFilename}
             </h2>
           </div>
@@ -66,12 +68,12 @@ export function FileSidebar({
             onClick={onClose}
             className="shrink-0"
           >
-            <XIcon className="h-4 w-4" />
+            <span className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white">✕</span>
           </Button>
         </div>
 
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">
-          {isSharedFile ? "Shared file details and actions" : "File details and actions"}
+        <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6">
+          {sharedByMe ? "File shared by you" : isSharedFile ? "Shared file details and actions" : "File details and actions"}
         </p>
 
         {/* Preview Placeholder */}
@@ -82,58 +84,58 @@ export function FileSidebar({
         {/* File Info - Scrollable */}
         <div className="space-y-4 mb-6 flex-1 overflow-y-auto">
           <div>
-            <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 mb-1">
+            <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400 mb-1">
               <HardDriveIcon className="h-4 w-4" />
               <span>Size</span>
             </div>
-            <p className="text-lg font-medium">
+            <p className="text-lg font-medium text-neutral-900 dark:text-white">
               {formatFileSize(file.fileSize)}
             </p>
           </div>
 
-          <Separator />
+          <Separator className="bg-neutral-300 dark:bg-neutral-800" />
 
           <div>
-            <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 mb-1">
+            <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400 mb-1">
               <CalendarIcon className="h-4 w-4" />
               <span>Created</span>
             </div>
-            <p className="text-lg font-medium">
+            <p className="text-lg font-medium text-neutral-900 dark:text-white">
               {new Date(file.createdAt).toLocaleString()}
             </p>
           </div>
 
-          <Separator />
+          <Separator className="bg-neutral-300 dark:bg-neutral-800" />
 
           <div>
-            <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 mb-1">
+            <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400 mb-1">
               <UserIcon className="h-4 w-4" />
-              <span>{isSharedFile ? "Shared By" : "Owner"}</span>
+              <span>{sharedByMe ? "Shared With" : isSharedFile ? "Shared By" : "Owner"}</span>
             </div>
-            <p className="text-lg font-medium">
+            <p className="text-lg font-medium text-neutral-900 dark:text-white">
               {ownerName || "Unknown"}
             </p>
           </div>
 
           {/* {file.mimeType && (
             <>
-              <Separator />
+              <Separator className="bg-neutral-300 dark:bg-neutral-800" />
               <div>
-                <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400 mb-1">
+                <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400 mb-1">
                   <FileIcon className="h-4 w-4" />
                   <span>Type</span>
                 </div>
-                <p className="text-lg font-medium">
+                <p className="text-lg font-medium text-neutral-900 dark:text-white">
                   {file.mimeType}
                 </p>
               </div>
             </>
           )} */}
 
-          <Separator />
+          <Separator className="bg-neutral-300 dark:bg-neutral-800" />
 
           <div>
-            <div className="text-sm text-neutral-500 dark:text-neutral-400 mb-2">
+            <div className="text-sm text-neutral-600 dark:text-neutral-400 mb-2">
               Status
             </div>
             <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
@@ -146,9 +148,9 @@ export function FileSidebar({
 
           {isSharedFile && (
             <>
-              <Separator />
+              <Separator className="bg-neutral-300 dark:bg-neutral-800" />
               <div>
-                <div className="text-sm text-neutral-500 dark:text-neutral-400 mb-2">
+                <div className="text-sm text-neutral-600 dark:text-neutral-400 mb-2">
                   Sharing Info
                 </div>
                 <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
@@ -161,11 +163,12 @@ export function FileSidebar({
         </div>
 
         {/* Actions - Fixed at Bottom */}
-        <div className="space-y-2 pt-6 border-t border-border">
-          {showShareButton && onShare && !isSharedFile && (
+        <div className="space-y-2 pt-6 border-t border-neutral-300 dark:border-neutral-800">
+          {/* Only show Share button if user is the owner */}
+          {showShareButton && onShare && !isSharedFile && file.isOwner !== false && (
             <Button
               onClick={() => onShare(file)}
-              className="w-full"
+              className="w-full bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
               variant="outline"
               disabled={!file.wrappedDek}
               title={!file.wrappedDek ? "This file cannot be shared (legacy format)" : "Share this file"}
@@ -178,7 +181,7 @@ export function FileSidebar({
           {/* {onPreview && (
             <Button
               onClick={() => onPreview(file)}
-              className="w-full"
+              className="w-full bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
               variant="outline"
             >
               <EyeIcon className="h-4 w-4 mr-2" />
@@ -189,7 +192,7 @@ export function FileSidebar({
           {onDownload && (
             <Button
               onClick={() => onDownload(file)}
-              className="w-full"
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
               variant="default"
             >
               <DownloadIcon className="h-4 w-4 mr-2" />
@@ -197,7 +200,8 @@ export function FileSidebar({
             </Button>
           )}
 
-          {onDelete && !isSharedFile && (
+          {/* Only show Delete button if user is the owner */}
+          {onDelete && !isSharedFile && file.isOwner !== false && (
             <>
               <Button
                 onClick={() => setIsDeleteOpen(true)}
