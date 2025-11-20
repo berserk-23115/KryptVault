@@ -35,6 +35,31 @@ This project uses PostgreSQL with Drizzle ORM.
 pnpm run db:push
 ```
 
+## S3/MinIO Configuration
+
+This project uses S3-compatible storage (MinIO) for file storage.
+
+### Environment Variables
+
+In your `apps/server/.env` file, configure:
+
+```bash
+# Internal S3 endpoint (used by server to communicate with MinIO)
+AWS_S3_ENDPOINT=http://minio:9000  # For Docker, or http://localhost:9200 for local dev
+
+# Public S3 endpoint (used in presigned URLs for client access)
+PUBLIC_S3_ENDPOINT=https://s3.ayushk.me  # Your public S3/MinIO URL
+```
+
+**Important for Production:**
+- `AWS_S3_ENDPOINT`: Should be the internal Docker service name or internal network address
+- `PUBLIC_S3_ENDPOINT`: **Must** be the publicly accessible URL that browsers/clients can reach
+- If these don't match, presigned URLs will be rewritten to use the public endpoint
+
+### CORS Configuration
+
+Make sure your MinIO instance has CORS properly configured to allow requests from your web application domain.
+
 
 Then, run the development server:
 
