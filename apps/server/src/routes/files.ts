@@ -1,25 +1,13 @@
 import { Hono } from "hono";
 import { db, file, fileKey, userSettings } from "@krypt-vault/db";
 import { eq, and, desc, sql } from "@krypt-vault/db";
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 import sodium from "libsodium-wrappers";
 import { auth } from "@krypt-vault/auth";
-
-// Initialize S3 client for MinIO
-const s3Client = new S3Client({
-	region: process.env.AWS_REGION || "us-east-1",
-	endpoint: process.env.AWS_S3_ENDPOINT || "http://localhost:9200",
-	credentials: {
-		accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-		secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-	},
-	forcePathStyle: true, // Required for MinIO
-});
-
-const BUCKET_NAME = process.env.AWS_S3_BUCKET || "krypt-vault-files";
+import { s3Client, s3Presigner, BUCKET_NAME } from "../lib/s3";
 
 // Server keypair for sealing/unsealing DEKs (should be stored securely in production)
 let SERVER_PUBLIC_KEY: string;
@@ -145,15 +133,10 @@ app.post("/upload/init", async (c) => {
 			ContentType: "application/octet-stream", // Always encrypted binary
 		});
 		
-		const rawPresignedUrl = await getSignedUrl(s3Client, command, {
+		// Use s3Presigner to generate URL with correct public hostname
+		const presignedUrl = await getSignedUrl(s3Presigner, command, {
 			expiresIn: 900, // 15 minutes
 		});
-		
-		// CRITICAL: Swap internal Docker host with Public URL
-		const presignedUrl = rawPresignedUrl.replace(
-			process.env.AWS_S3_ENDPOINT || "http://localhost:9200",
-			process.env.PUBLIC_S3_ENDPOINT || "https://s3.ayushk.me"
-		);
 		
 		console.log("✅ Presigned URL generated successfully");
 		console.log("🔗 Public URL:", presignedUrl);
@@ -540,15 +523,10 @@ app.post("/:fileId/download", async (c) => {
 			Key: fileRecord.s3Key,
 		});
 		
-		const rawPresignedUrl = await getSignedUrl(s3Client, command, {
+		// Use s3Presigner to generate URL with correct public hostname
+		const presignedUrl = await getSignedUrl(s3Presigner, command, {
 			expiresIn: 900, // 15 minutes
 		});
-		
-		// CRITICAL: Swap internal Docker host with Public URL
-		const presignedUrl = rawPresignedUrl.replace(
-			process.env.AWS_S3_ENDPOINT || "http://localhost:9200",
-			process.env.PUBLIC_S3_ENDPOINT || "https://s3.ayushk.me"
-		);
 		
 		return c.json({
 			downloadUrl: presignedUrl,

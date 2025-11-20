@@ -25,6 +25,7 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin123
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"  # Allow CORS from all origins
     command: server /data --console-address ":9001"
     ports:
       - "9200:9000" # Host port 9200 → Container port 9000 (S3 API)

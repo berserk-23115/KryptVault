@@ -37,7 +37,20 @@ pnpm run db:push
 
 ## S3/MinIO Configuration
 
-This project uses S3-compatible storage (MinIO) for file storage.
+This project uses S3-compatible storage (MinIO) for file storage with a **dual-client architecture** to properly handle presigned URLs in production.
+
+### Architecture
+
+The server uses **two separate S3 clients**:
+
+1. **`s3Client`** - Uses internal Docker endpoint (`http://minio:9000`)
+   - Used for server-side operations (delete, list, etc.)
+   - Communicates directly with MinIO container
+
+2. **`s3Presigner`** - Uses public endpoint (`https://s3.ayushk.me`)
+   - Used ONLY for generating presigned URLs
+   - Ensures cryptographic signatures match the public hostname
+   - Prevents "SignatureDoesNotMatch" errors
 
 ### Environment Variables
 
@@ -52,13 +65,19 @@ PUBLIC_S3_ENDPOINT=https://s3.ayushk.me  # Your public S3/MinIO URL
 ```
 
 **Important for Production:**
-- `AWS_S3_ENDPOINT`: Should be the internal Docker service name or internal network address
+- `AWS_S3_ENDPOINT`: Internal Docker service name or internal network address
 - `PUBLIC_S3_ENDPOINT`: **Must** be the publicly accessible URL that browsers/clients can reach
-- If these don't match, presigned URLs will be rewritten to use the public endpoint
+- The presigner client uses `PUBLIC_S3_ENDPOINT` to generate cryptographically valid URLs
 
 ### CORS Configuration
 
-Make sure your MinIO instance has CORS properly configured to allow requests from your web application domain.
+The MinIO service is configured with CORS to allow cross-origin requests:
+
+```yaml
+MINIO_API_CORS_ALLOW_ORIGIN: "*"
+```
+
+For production, replace `"*"` with your specific domains (e.g., `"https://your-app.com,https://tauri.localhost"`).
 
 
 Then, run the development server:
