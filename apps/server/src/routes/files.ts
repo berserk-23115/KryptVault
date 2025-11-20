@@ -527,21 +527,59 @@ app.post("/:fileId/restore", async (c) => {
 			return c.json({ error: "File not found in trash" }, 404);
 		}
 		
-		// Restore file: clear deletion fields
-		await db.execute(
-			sql`UPDATE file 
-				SET deleted_at = NULL, 
-					deleted_by = NULL, 
-					scheduled_deletion_at = NULL, 
-					updated_at = NOW() 
-				WHERE id = ${fileId}`
-		);
+		// Check if the file was in a folder and if that folder still exists
+		let shouldClearFolderId = false;
+		if (fileRecord.folderId) {
+			const { folder } = await import("@krypt-vault/db");
+			const [folderRecord] = await db
+				.select({
+					id: folder.id,
+					deletedAt: sql<Date | null>`${folder}.deleted_at`,
+				})
+				.from(folder)
+				.where(eq(folder.id, fileRecord.folderId))
+				.limit(1);
+			
+			// Only clear folderId if folder doesn't exist at all
+			// If folder is just in trash, keep the association so it can be restored later
+			if (!folderRecord) {
+				shouldClearFolderId = true;
+				console.log(`⚠️ File's folder doesn't exist, removing folder association`);
+			} else if (folderRecord.deletedAt) {
+				console.log(`📁 File's folder is in trash, keeping association for potential folder restore`);
+			}
+		}
+		
+		// Restore file: clear deletion fields and optionally clear folderId
+		if (shouldClearFolderId) {
+			await db.execute(
+				sql`UPDATE file 
+					SET deleted_at = NULL, 
+						deleted_by = NULL, 
+						scheduled_deletion_at = NULL,
+						folder_id = NULL,
+						updated_at = NOW() 
+					WHERE id = ${fileId}`
+			);
+		} else {
+			await db.execute(
+				sql`UPDATE file 
+					SET deleted_at = NULL, 
+						deleted_by = NULL, 
+						scheduled_deletion_at = NULL, 
+						updated_at = NOW() 
+					WHERE id = ${fileId}`
+			);
+		}
 		
 		console.log(`✅ File ${fileId} restored from trash`);
 		
 		return c.json({ 
 			success: true,
-			message: "File restored successfully",
+			message: shouldClearFolderId 
+				? "File restored successfully (original folder no longer exists)" 
+				: "File restored successfully",
+			folderCleared: shouldClearFolderId,
 		});
 	} catch (error) {
 		console.error("Restore file error:", error);

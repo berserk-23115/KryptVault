@@ -80,7 +80,16 @@ export function ShareFolderDialog({
     try {
       setLoadingAccess(true);
       const list = await getFolderAccessList(folderId);
-      setAccessList(list);
+      
+      // Filter out the owner from the sharedWith list
+      const filteredSharedWith = list.sharedWith.filter(
+        user => user.userId !== list.owner?.userId
+      );
+      
+      setAccessList({
+        owner: list.owner,
+        sharedWith: filteredSharedWith,
+      });
     } catch (error) {
       console.error("Failed to load access list:", error);
       toast.error("Failed to load access list");
