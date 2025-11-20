@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { db, file, fileKey } from "@krypt-vault/db";
-import { eq, and, desc, or } from "@krypt-vault/db";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { db, file, fileKey, userSettings } from "@krypt-vault/db";
+import { eq, and, desc, sql } from "@krypt-vault/db";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
@@ -24,6 +24,11 @@ const BUCKET_NAME = process.env.AWS_S3_BUCKET || "krypt-vault-files";
 // Server keypair for sealing/unsealing DEKs (should be stored securely in production)
 let SERVER_PUBLIC_KEY: string;
 let SERVER_PRIVATE_KEY: string;
+
+// Validation schemas no longer used but kept for reference
+// const downloadRequestSchema = z.object({
+// 	fileId: z.string(),
+// });
 
 // Initialize libsodium and generate/load server keypair
 async function initializeCrypto() {
@@ -122,7 +127,7 @@ app.post("/upload/init", async (c) => {
 		const body = await c.req.json();
 		console.log("📤 Upload init request:", body);
 		
-		const validated = uploadRequestSchema.parse(body);
+		uploadRequestSchema.parse(body); // Validate input
 		const userId = (c as any).get("userId") as string;
 		
 		console.log("👤 User ID:", userId);
@@ -223,7 +228,7 @@ app.get("/", async (c) => {
 		
 		console.log("📋 Listing files for user:", userId);
 		
-		// Get files where user has a file key (owned or shared)
+		// Get files where user has a file key (owned or shared) and NOT deleted
 		const files = await db
 			.select({
 				fileId: file.id,
@@ -244,7 +249,12 @@ app.get("/", async (c) => {
 			})
 			.from(fileKey)
 			.innerJoin(file, eq(fileKey.fileId, file.id))
-			.where(eq(fileKey.recipientUserId, userId))
+			.where(
+				and(
+					eq(fileKey.recipientUserId, userId),
+					sql`${file}.deleted_at IS NULL` // Only show non-deleted files
+				)
+			)
 			.orderBy(desc(file.createdAt));
 		
 		console.log(`✅ Found ${files.length} files`);
@@ -253,6 +263,211 @@ app.get("/", async (c) => {
 	} catch (error) {
 		console.error("❌ List files error:", error);
 		return c.json({ error: "Failed to list files" }, 500);
+	}
+});
+
+// GET /api/files/trash - List files in trash (must come before /:fileId)
+app.get("/trash", async (c) => {
+	try {
+		const userId = (c as any).get("userId") as string;
+		
+		console.log("🗑️ Listing trash files for user:", userId);
+		
+		// Get deleted files where user is the owner
+		const trashedFiles = await db
+			.select({
+				fileId: file.id,
+				userId: file.userId,
+				originalFilename: file.originalFilename,
+				mimeType: file.mimeType,
+				fileSize: file.fileSize,
+				s3Key: file.s3Key,
+				s3Bucket: file.s3Bucket,
+				nonce: file.nonce,
+				createdAt: file.createdAt,
+				updatedAt: file.updatedAt,
+				deletedAt: sql<Date>`${file}.deleted_at`,
+				deletedBy: sql<string>`${file}.deleted_by`,
+				scheduledDeletionAt: sql<Date>`${file}.scheduled_deletion_at`,
+				description: file.description,
+				tags: file.tags,
+				folderId: file.folderId,
+				wrappedDek: fileKey.wrappedDek,
+			})
+			.from(fileKey)
+			.innerJoin(file, eq(fileKey.fileId, file.id))
+			.where(
+				and(
+					eq(fileKey.recipientUserId, userId),
+					eq(file.userId, userId), // Only show files user owns
+					sql`${file}.deleted_at IS NOT NULL` // Only deleted files
+				)
+			)
+			.orderBy(sql`${file}.deleted_at DESC`);
+		
+		console.log(`✅ Found ${trashedFiles.length} files in trash`);
+		
+		return c.json({ files: trashedFiles });
+	} catch (error) {
+		console.error("❌ List trash error:", error);
+		return c.json({ error: "Failed to list trash files" }, 500);
+	}
+});
+
+// POST /api/files/cleanup - Cleanup expired files from trash (must come before /:fileId)
+app.post("/cleanup", async (c) => {
+	try {
+		// Optional: Add API key authentication for cron jobs
+		const apiKey = c.req.header("x-api-key");
+		if (process.env.CLEANUP_API_KEY && apiKey !== process.env.CLEANUP_API_KEY) {
+			return c.json({ error: "Unauthorized" }, 401);
+		}
+		
+		console.log("🧹 Starting trash cleanup...");
+		
+		// Find files that should be permanently deleted
+		const expiredFiles = await db
+			.select()
+			.from(file)
+			.where(
+				sql`${file}.deleted_at IS NOT NULL AND ${file}.scheduled_deletion_at IS NOT NULL AND ${file}.scheduled_deletion_at < NOW()`
+			);
+		
+		console.log(`Found ${expiredFiles.length} expired files to delete`);
+		
+		let successCount = 0;
+		let errorCount = 0;
+		
+		for (const fileRecord of expiredFiles) {
+			try {
+				// Delete from S3
+				await s3Client.send(new DeleteObjectCommand({
+					Bucket: fileRecord.s3Bucket,
+					Key: fileRecord.s3Key,
+				}));
+				
+				// Delete from database
+				await db.delete(file).where(eq(file.id, fileRecord.id));
+				
+				successCount++;
+				console.log(`✅ Permanently deleted expired file: ${fileRecord.id}`);
+			} catch (error) {
+				errorCount++;
+				console.error(`❌ Failed to delete file ${fileRecord.id}:`, error);
+			}
+		}
+		
+		console.log(`🧹 Cleanup complete: ${successCount} deleted, ${errorCount} errors`);
+		
+		return c.json({ 
+			success: true,
+			deleted: successCount,
+			errors: errorCount,
+			total: expiredFiles.length,
+		});
+	} catch (error) {
+		console.error("Cleanup error:", error);
+		return c.json({ error: "Failed to cleanup trash" }, 500);
+	}
+});
+
+// POST /api/files/:fileId/restore - Restore file from trash (must come before /:fileId)
+app.post("/:fileId/restore", async (c) => {
+	try {
+		const fileId = c.req.param("fileId");
+		const userId = (c as any).get("userId") as string;
+		
+		console.log(`🔄 Restoring file ${fileId} from trash`);
+		
+		// Check if file exists in trash
+		const [fileRecord] = await db
+			.select()
+			.from(file)
+			.where(
+				and(
+					eq(file.id, fileId),
+					eq(file.userId, userId),
+					sql`${file}.deleted_at IS NOT NULL`
+				)
+			)
+			.limit(1);
+		
+		if (!fileRecord) {
+			console.error(`❌ File ${fileId} not found in trash`);
+			return c.json({ error: "File not found in trash" }, 404);
+		}
+		
+		// Restore file: clear deletion fields
+		await db.execute(
+			sql`UPDATE file 
+				SET deleted_at = NULL, 
+					deleted_by = NULL, 
+					scheduled_deletion_at = NULL, 
+					updated_at = NOW() 
+				WHERE id = ${fileId}`
+		);
+		
+		console.log(`✅ File ${fileId} restored from trash`);
+		
+		return c.json({ 
+			success: true,
+			message: "File restored successfully",
+		});
+	} catch (error) {
+		console.error("Restore file error:", error);
+		return c.json({ error: "Failed to restore file" }, 500);
+	}
+});
+
+// DELETE /api/files/:fileId/permanent - Permanently delete file (must come before /:fileId)
+app.delete("/:fileId/permanent", async (c) => {
+	try {
+		const fileId = c.req.param("fileId");
+		const userId = (c as any).get("userId") as string;
+		
+		console.log(`🗑️ Permanently deleting file ${fileId}`);
+		
+		const [fileRecord] = await db
+			.select()
+			.from(file)
+			.where(
+				and(
+					eq(file.id, fileId),
+					eq(file.userId, userId),
+					sql`${file}.deleted_at IS NOT NULL` // Must be in trash
+				)
+			)
+			.limit(1);
+		
+		if (!fileRecord) {
+			console.error(`❌ File ${fileId} not found in trash`);
+			return c.json({ error: "File not found in trash" }, 404);
+		}
+		
+		// Delete from S3
+		try {
+			await s3Client.send(new DeleteObjectCommand({
+				Bucket: fileRecord.s3Bucket,
+				Key: fileRecord.s3Key,
+			}));
+			console.log(`✅ Deleted ${fileRecord.s3Key} from S3`);
+		} catch (s3Error) {
+			console.error("⚠️ Failed to delete from S3:", s3Error);
+			// Continue with database deletion even if S3 fails
+		}
+		
+		// Delete from database (cascades to fileKey)
+		await db.delete(file).where(eq(file.id, fileId));
+		
+		console.log(`✅ File ${fileId} permanently deleted`);
+		
+		return c.json({ 
+			success: true,
+			message: "File permanently deleted",
+		});
+	} catch (error) {
+		console.error("Permanent delete error:", error);
+		return c.json({ error: "Failed to permanently delete file" }, 500);
 	}
 });
 
@@ -335,7 +550,7 @@ app.post("/:fileId/download", async (c) => {
 	}
 });
 
-// DELETE /api/files/:fileId - Delete file
+// DELETE /api/files/:fileId - Soft delete file (move to trash)
 app.delete("/:fileId", async (c) => {
 	try {
 		const fileId = c.req.param("fileId");
@@ -351,16 +566,39 @@ app.delete("/:fileId", async (c) => {
 			return c.json({ error: "File not found" }, 404);
 		}
 		
-		// Delete from S3 (you might want to implement this)
-		// await s3Client.send(new DeleteObjectCommand({
-		//   Bucket: fileRecord.s3Bucket,
-		//   Key: fileRecord.s3Key,
-		// }));
+		// Get user's trash retention settings
+		const [settings] = await db
+			.select()
+			.from(userSettings)
+			.where(eq(userSettings.userId, userId))
+			.limit(1);
 		
-		// Delete from database
-		await db.delete(file).where(eq(file.id, fileId));
+		const retentionDays = settings?.trashRetentionDays ?? 30;
 		
-		return c.json({ success: true });
+		// Calculate scheduled deletion date
+		let scheduledDeletion: Date | null = null;
+		if (retentionDays > 0) {
+			scheduledDeletion = new Date();
+			scheduledDeletion.setDate(scheduledDeletion.getDate() + retentionDays);
+		}
+		
+		// Soft delete: mark as deleted instead of removing
+		await db.execute(
+			sql`UPDATE file 
+				SET deleted_at = NOW(), 
+					deleted_by = ${userId}, 
+					scheduled_deletion_at = ${scheduledDeletion}, 
+					updated_at = NOW() 
+				WHERE id = ${fileId}`
+		);
+		
+		console.log(`✅ File ${fileId} moved to trash`);
+		
+		return c.json({ 
+			success: true,
+			message: "File moved to trash",
+			scheduledDeletion: scheduledDeletion?.toISOString() || null,
+		});
 	} catch (error) {
 		console.error("Delete file error:", error);
 		return c.json({ error: "Failed to delete file" }, 500);
@@ -368,3 +606,6 @@ app.delete("/:fileId", async (c) => {
 });
 
 export default app;
+
+
+

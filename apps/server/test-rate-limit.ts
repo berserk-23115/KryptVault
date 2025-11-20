@@ -7,7 +7,7 @@
 
 const BASE_URL = process.env.API_URL || "http://localhost:3000";
 const TEST_ENDPOINT = "/";
-const MAX_REQUESTS = 105; // Test exceeding the limit (default is 100)
+const MAX_REQUESTS = 1005; // Test exceeding the limit (default is 1000)
 
 interface RateLimitHeaders {
 	limit?: string;

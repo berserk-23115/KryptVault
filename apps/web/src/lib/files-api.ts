@@ -17,6 +17,9 @@ export interface FileMetadata {
   tags?: string[];
   folderId?: string;
   isOwner?: boolean; // Whether current user owns the file
+  deletedAt?: Date; // When file was moved to trash
+  deletedBy?: string; // Who deleted it
+  scheduledDeletionAt?: Date; // When to permanently delete
 }
 
 export interface UploadInitResponse {
@@ -162,6 +165,32 @@ class FilesApiClient {
    */
   async deleteFile(fileId: string): Promise<void> {
     await this.request(`/${fileId}`, {
+      method: "DELETE",
+    });
+  }
+
+  /**
+   * List files in trash
+   */
+  async listTrash(): Promise<FileMetadata[]> {
+    const response = await this.request<{ files: FileMetadata[] }>("/trash");
+    return response.files;
+  }
+
+  /**
+   * Restore file from trash
+   */
+  async restoreFile(fileId: string): Promise<void> {
+    await this.request(`/${fileId}/restore`, {
+      method: "POST",
+    });
+  }
+
+  /**
+   * Permanently delete file from trash
+   */
+  async permanentlyDeleteFile(fileId: string): Promise<void> {
+    await this.request(`/${fileId}/permanent`, {
       method: "DELETE",
     });
   }
