@@ -513,11 +513,6 @@ function RouteComponent() {
                   to="/dashboard/shared"
                 />
                 <SidebarItem
-                  icon={FileQuestion}
-                  label="Requests"
-                  to="/dashboard/requests"
-                />
-                <SidebarItem
                   icon={Trash2}
                   label="Trash Bin"
                   to="/dashboard/trash-bin"
