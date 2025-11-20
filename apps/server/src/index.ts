@@ -37,6 +37,7 @@ app.use(
 				"http://localhost:3001",
 				"http://127.0.0.1:3001",
 				process.env.CORS_ORIGIN,
+				process.env.PASSKEY_ORIGIN,
 			].filter(Boolean);
 			
 			if (!origin || allowedOrigins.includes(origin)) {
