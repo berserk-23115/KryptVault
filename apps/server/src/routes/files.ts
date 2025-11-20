@@ -145,11 +145,18 @@ app.post("/upload/init", async (c) => {
 			ContentType: "application/octet-stream", // Always encrypted binary
 		});
 		
-		const presignedUrl = await getSignedUrl(s3Client, command, {
+		const rawPresignedUrl = await getSignedUrl(s3Client, command, {
 			expiresIn: 900, // 15 minutes
 		});
 		
+		// CRITICAL: Swap internal Docker host with Public URL
+		const presignedUrl = rawPresignedUrl.replace(
+			process.env.AWS_S3_ENDPOINT || "http://localhost:9200",
+			process.env.PUBLIC_S3_ENDPOINT || "https://s3.ayushk.me"
+		);
+		
 		console.log("✅ Presigned URL generated successfully");
+		console.log("🔗 Public URL:", presignedUrl);
 		
 		return c.json({
 			fileId,
@@ -533,9 +540,15 @@ app.post("/:fileId/download", async (c) => {
 			Key: fileRecord.s3Key,
 		});
 		
-		const presignedUrl = await getSignedUrl(s3Client, command, {
+		const rawPresignedUrl = await getSignedUrl(s3Client, command, {
 			expiresIn: 900, // 15 minutes
 		});
+		
+		// CRITICAL: Swap internal Docker host with Public URL
+		const presignedUrl = rawPresignedUrl.replace(
+			process.env.AWS_S3_ENDPOINT || "http://localhost:9200",
+			process.env.PUBLIC_S3_ENDPOINT || "https://s3.ayushk.me"
+		);
 		
 		return c.json({
 			downloadUrl: presignedUrl,
