@@ -14,9 +14,9 @@ import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardTrashBinRouteImport } from './routes/dashboard/trash-bin'
+import { Route as DashboardTempRouteImport } from './routes/dashboard/temp'
 import { Route as DashboardSharedRouteImport } from './routes/dashboard/shared'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
-import { Route as DashboardRequestsRouteImport } from './routes/dashboard/requests'
 import { Route as DashboardMyFilesRouteImport } from './routes/dashboard/my-files'
 import { Route as DashboardHelpGuideRouteImport } from './routes/dashboard/help-guide'
 import { Route as DashboardFoldersFolderIdRouteImport } from './routes/dashboard/folders/$folderId'
@@ -46,6 +46,11 @@ const DashboardTrashBinRoute = DashboardTrashBinRouteImport.update({
   path: '/trash-bin',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardTempRoute = DashboardTempRouteImport.update({
+  id: '/temp',
+  path: '/temp',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardSharedRoute = DashboardSharedRouteImport.update({
   id: '/shared',
   path: '/shared',
@@ -54,11 +59,6 @@ const DashboardSharedRoute = DashboardSharedRouteImport.update({
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardRequestsRoute = DashboardRequestsRouteImport.update({
-  id: '/requests',
-  path: '/requests',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardMyFilesRoute = DashboardMyFilesRouteImport.update({
@@ -84,9 +84,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/dashboard/help-guide': typeof DashboardHelpGuideRoute
   '/dashboard/my-files': typeof DashboardMyFilesRoute
-  '/dashboard/requests': typeof DashboardRequestsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/shared': typeof DashboardSharedRoute
+  '/dashboard/temp': typeof DashboardTempRoute
   '/dashboard/trash-bin': typeof DashboardTrashBinRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/folders/$folderId': typeof DashboardFoldersFolderIdRoute
@@ -96,9 +96,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/dashboard/help-guide': typeof DashboardHelpGuideRoute
   '/dashboard/my-files': typeof DashboardMyFilesRoute
-  '/dashboard/requests': typeof DashboardRequestsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/shared': typeof DashboardSharedRoute
+  '/dashboard/temp': typeof DashboardTempRoute
   '/dashboard/trash-bin': typeof DashboardTrashBinRoute
   '/dashboard': typeof DashboardIndexRoute
   '/dashboard/folders/$folderId': typeof DashboardFoldersFolderIdRoute
@@ -110,9 +110,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/dashboard/help-guide': typeof DashboardHelpGuideRoute
   '/dashboard/my-files': typeof DashboardMyFilesRoute
-  '/dashboard/requests': typeof DashboardRequestsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/shared': typeof DashboardSharedRoute
+  '/dashboard/temp': typeof DashboardTempRoute
   '/dashboard/trash-bin': typeof DashboardTrashBinRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/folders/$folderId': typeof DashboardFoldersFolderIdRoute
@@ -125,9 +125,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/help-guide'
     | '/dashboard/my-files'
-    | '/dashboard/requests'
     | '/dashboard/settings'
     | '/dashboard/shared'
+    | '/dashboard/temp'
     | '/dashboard/trash-bin'
     | '/dashboard/'
     | '/dashboard/folders/$folderId'
@@ -137,9 +137,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/help-guide'
     | '/dashboard/my-files'
-    | '/dashboard/requests'
     | '/dashboard/settings'
     | '/dashboard/shared'
+    | '/dashboard/temp'
     | '/dashboard/trash-bin'
     | '/dashboard'
     | '/dashboard/folders/$folderId'
@@ -150,9 +150,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/help-guide'
     | '/dashboard/my-files'
-    | '/dashboard/requests'
     | '/dashboard/settings'
     | '/dashboard/shared'
+    | '/dashboard/temp'
     | '/dashboard/trash-bin'
     | '/dashboard/'
     | '/dashboard/folders/$folderId'
@@ -201,6 +201,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardTrashBinRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/temp': {
+      id: '/dashboard/temp'
+      path: '/temp'
+      fullPath: '/dashboard/temp'
+      preLoaderRoute: typeof DashboardTempRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/shared': {
       id: '/dashboard/shared'
       path: '/shared'
@@ -213,13 +220,6 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/dashboard/settings'
       preLoaderRoute: typeof DashboardSettingsRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/requests': {
-      id: '/dashboard/requests'
-      path: '/requests'
-      fullPath: '/dashboard/requests'
-      preLoaderRoute: typeof DashboardRequestsRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/my-files': {
@@ -249,9 +249,9 @@ declare module '@tanstack/react-router' {
 interface DashboardRouteRouteChildren {
   DashboardHelpGuideRoute: typeof DashboardHelpGuideRoute
   DashboardMyFilesRoute: typeof DashboardMyFilesRoute
-  DashboardRequestsRoute: typeof DashboardRequestsRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardSharedRoute: typeof DashboardSharedRoute
+  DashboardTempRoute: typeof DashboardTempRoute
   DashboardTrashBinRoute: typeof DashboardTrashBinRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardFoldersFolderIdRoute: typeof DashboardFoldersFolderIdRoute
@@ -260,9 +260,9 @@ interface DashboardRouteRouteChildren {
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardHelpGuideRoute: DashboardHelpGuideRoute,
   DashboardMyFilesRoute: DashboardMyFilesRoute,
-  DashboardRequestsRoute: DashboardRequestsRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardSharedRoute: DashboardSharedRoute,
+  DashboardTempRoute: DashboardTempRoute,
   DashboardTrashBinRoute: DashboardTrashBinRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardFoldersFolderIdRoute: DashboardFoldersFolderIdRoute,

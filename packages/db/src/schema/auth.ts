@@ -68,3 +68,15 @@ export const verification = pgTable("verification", {
 	createdAt: timestamp("created_at"),
 	updatedAt: timestamp("updated_at"),
 });
+
+// Security questions for account recovery and 2FA
+export const securityQuestion = pgTable("security_question", {
+	id: text("id").primaryKey(),
+	userId: text("user_id")
+		.notNull()
+		.references(() => user.id, { onDelete: "cascade" }),
+	question: text("question").notNull(),
+	answerHash: text("answer_hash").notNull(), // bcrypt hash of the answer
+	createdAt: timestamp("created_at").notNull().defaultNow(),
+	updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

@@ -11,8 +11,10 @@ import { Button } from "@/components/ui/button";
 import { generateUserKeypair } from "@/lib/tauri-crypto";
 import { registerKeypair, getMyKeypair } from "@/lib/sharing-api";
 import { toast } from "sonner";
-import { Loader2, Key } from "lucide-react";
+import { Loader2, Key, LogOut } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useNavigate } from "@tanstack/react-router";
+import { authClient } from "@/lib/auth-client";
 
 interface KeypairSetupDialogProps {
   open: boolean;
@@ -20,8 +22,20 @@ interface KeypairSetupDialogProps {
 }
 
 export function KeypairSetupDialog({ open, onComplete }: KeypairSetupDialogProps) {
+  const navigate = useNavigate();
   const [generating, setGenerating] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  const handleLogout = async () => {
+    try {
+      await authClient.signOut();
+      toast.success("Logged out successfully");
+      navigate({ to: "/" });
+    } catch (err) {
+      console.error("Logout error:", err);
+      toast.error("Failed to logout");
+    }
+  };
 
   const handleSetup = async () => {
     try {
@@ -65,7 +79,7 @@ export function KeypairSetupDialog({ open, onComplete }: KeypairSetupDialogProps
         </DialogHeader>
 
         <div className="space-y-4">
-          <Alert>
+          {/* <Alert>
             <AlertDescription>
               <div className="space-y-2">
                 <p className="font-medium">What will happen:</p>
@@ -77,14 +91,14 @@ export function KeypairSetupDialog({ open, onComplete }: KeypairSetupDialogProps
                 </ul>
               </div>
             </AlertDescription>
-          </Alert>
+          </Alert> */}
 
           <Alert variant="destructive">
             <AlertDescription>
               <p className="font-medium mb-1">⚠️ Important:</p>
               <p className="text-sm">
                 Your private keys will be stored on this device only. If you lose them,
-                you won't be able to decrypt your files. Make sure to back them up!
+                you won't be able to decrypt your files.
               </p>
             </AlertDescription>
           </Alert>
@@ -96,11 +110,20 @@ export function KeypairSetupDialog({ open, onComplete }: KeypairSetupDialogProps
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex gap-2">
+          <Button
+            variant="destructive"
+            onClick={handleLogout}
+            disabled={generating}
+            className="flex-1"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
           <Button
             onClick={handleSetup}
             disabled={generating}
-            className="w-full"
+            className="flex-1"
           >
             {generating ? (
               <>

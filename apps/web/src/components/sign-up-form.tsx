@@ -4,10 +4,49 @@ import { Checkbox } from "./ui/checkbox";
 import { toast } from "sonner";
 import z from "zod";
 import { authClient } from "@/lib/auth-client";
+import { useState } from "react";
 import Loader from "./loader";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { Eye, EyeOff, X } from "lucide-react";
+
+// Password validation schema
+const passwordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .regex(/[0-9]/, "Password must contain at least one number")
+  .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one symbol");
+
+// Function to calculate password strength
+const calculatePasswordStrength = (password: string) => {
+  let strength = 0;
+  const checks = {
+    length: password.length >= 8,
+    hasNumber: /[0-9]/.test(password),
+    hasSymbol: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+    hasLower: /[a-z]/.test(password),
+    hasUpper: /[A-Z]/.test(password),
+  };
+
+  Object.values(checks).forEach((check) => {
+    if (check) strength++;
+  });
+
+  if (strength <= 2) return { bars: 1, level: "Weak" };
+  if (strength <= 4) return { bars: 2, level: "Fair" };
+  return { bars: 3, level: "Strong" };
+};
+
+// Function to extract error message
+const getErrorMessage = (error: unknown): string => {
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as any).message);
+  }
+  return typeof error === "object" ? JSON.stringify(error) : String(error);
+};
 
 export default function SignUpForm({
   onSwitchToSignIn,
@@ -18,6 +57,8 @@ export default function SignUpForm({
     from: "/",
   });
   const { isPending } = authClient.useSession();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -54,7 +95,7 @@ export default function SignUpForm({
       onSubmit: z.object({
         name: z.string().min(2, "Name must be at least 2 characters"),
         email: z.string().email("Invalid email address"),
-        password: z.string().min(8, "Password must be at least 8 characters"),
+        password: passwordSchema,
         confirmPassword: z
           .string()
           .min(8, "Password must be at least 8 characters"),
@@ -123,7 +164,7 @@ export default function SignUpForm({
                   key={error?.toString()}
                   className="text-red-500 dark:text-red-400 text-sm mt-1"
                 >
-                  {error?.toString()}
+                  {getErrorMessage(error)}
                 </p>
               ))}
             </div>
@@ -155,7 +196,7 @@ export default function SignUpForm({
                   key={error?.toString()}
                   className="text-red-500 dark:text-red-400 text-sm mt-1"
                 >
-                  {error?.toString()}
+                  {getErrorMessage(error)}
                 </p>
               ))}
             </div>
@@ -172,22 +213,74 @@ export default function SignUpForm({
               >
                 Password
               </Label>
-              <Input
-                id={field.name}
-                name={field.name}
-                type="password"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-                className="h-11 rounded-lg text-base px-3.5"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type={showPassword ? "text" : "password"}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  className="h-11 rounded-lg text-base px-3.5 pr-10"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+              {/* Password Strength Indicator */}
+              {field.state.value && (
+                <div className="mt-3">
+                  <div className="flex gap-1.5">
+                    {[1, 2, 3].map((bar) => (
+                      <div
+                        key={bar}
+                        className={`flex-1 h-1.5 rounded-full transition-colors duration-300 ${
+                          bar <= calculatePasswordStrength(field.state.value).bars
+                            ? "bg-indigo-600 dark:bg-indigo-400"
+                            : "bg-slate-300 dark:bg-slate-700"
+                        }`}
+                      ></div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5">
+                    {calculatePasswordStrength(field.state.value).level}
+                  </p>
+                </div>
+              )}
+
+              {/* Password Requirements */}
+              {field.state.value && (
+                <div className="space-y-2 mt-3 text-xs text-slate-600 dark:text-slate-400">
+                  <p>Password requirements:</p>
+                  <div className="space-y-1 ml-2">
+                    <p className={field.state.value.length >= 8 ? "text-green-600 dark:text-green-400" : ""}>
+                      {field.state.value.length >= 8 ? "✓" : "○"} At least 8 characters
+                    </p>
+                    <p className={/[0-9]/.test(field.state.value) ? "text-green-600 dark:text-green-400" : ""}>
+                      {/[0-9]/.test(field.state.value) ? "✓" : "○"} At least one number
+                    </p>
+                    <p className={/[!@#$%^&*(),.?":{}|<>]/.test(field.state.value) ? "text-green-600 dark:text-green-400" : ""}>
+                      {/[!@#$%^&*(),.?":{}|<>]/.test(field.state.value) ? "✓" : "○"} At least one symbol (!@#$%^&*...)
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {field.state.meta.errors.map((error) => (
                 <p
                   key={error?.toString()}
-                  className="text-red-500 dark:text-red-400 text-sm mt-1"
+                  className="text-red-500 dark:text-red-400 text-sm mt-2"
                 >
-                  {error?.toString()}
+                  {getErrorMessage(error)}
                 </p>
               ))}
             </div>
@@ -204,45 +297,44 @@ export default function SignUpForm({
               >
                 Confirm Password
               </Label>
-              <Input
-                id={field.name}
-                name={field.name}
-                type="password"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-                className="h-11 rounded-lg text-base px-3.5"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  className="h-11 rounded-lg text-base px-3.5 pr-10"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition"
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
               {field.state.meta.errors.map((error) => (
                 <p
                   key={error?.toString()}
                   className="text-red-500 dark:text-red-400 text-sm mt-1"
                 >
-                  {error?.toString()}
+                  {getErrorMessage(error)}
                 </p>
               ))}
             </div>
           )}
         </form.Field>
 
-        {/* Remember Me + Submit */}
+        {/* Submit */}
         <div className="flex flex-col gap-3 pt-4">
-          {/* Remember me */}
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="remember"
-              onCheckedChange={(checked) =>
-                form.setFieldValue("remember", checked === true)
-              }
-            />
-            <Label
-              htmlFor="remember"
-              className="text-xs text-gray-700 dark:text-gray-300 cursor-pointer"
-            >
-              Remember me
-            </Label>
-          </div>
+          
 
           {/* Submit */}
           <form.Subscribe>
@@ -256,6 +348,16 @@ export default function SignUpForm({
               </Button>
             )}
           </form.Subscribe>
+
+          {/* Cancel Button */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate({ to: "/" })}
+            className="h-11 w-full text-base font-semibold rounded-lg transition"
+          >
+            Cancel
+          </Button>
         </div>
       </form>
     </div>

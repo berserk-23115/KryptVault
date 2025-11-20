@@ -12,6 +12,7 @@ import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
 import { Link } from "@tanstack/react-router";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Settings, LogOut } from "lucide-react";
 
 export default function UserMenu() {
 	const navigate = useNavigate();
@@ -32,8 +33,8 @@ export default function UserMenu() {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="ghost" className="gap-2">
-					<Avatar className="h-6 w-6">
+				<Button variant="ghost" className="gap-2 rounded-full p-2 py-3  text-md">
+					<Avatar className="h-9 w-9">
 						<AvatarImage src="/profile.png" alt={session.user?.name || "User"} />
 						<AvatarFallback>{(session.user?.name || session.user?.email || "U").charAt(0).toUpperCase()}</AvatarFallback>
 					</Avatar>
@@ -43,7 +44,16 @@ export default function UserMenu() {
 			<DropdownMenuContent className="bg-card">
 				<DropdownMenuLabel>My Account</DropdownMenuLabel>
 				<DropdownMenuSeparator />
-				<DropdownMenuItem>{session.user?.email}</DropdownMenuItem>
+				<DropdownMenuItem asChild className="cursor-pointer">
+					<Link to="/dashboard/settings" className="flex items-center">
+						<Settings className="h-4 w-4 mr-2" />
+						Settings
+					</Link>
+				</DropdownMenuItem>
+				<DropdownMenuItem className="text-muted-foreground">
+					{session.user?.email}
+				</DropdownMenuItem>
+				<DropdownMenuSeparator />
 				<DropdownMenuItem asChild>
 					<Button
 						variant="destructive"
@@ -60,6 +70,7 @@ export default function UserMenu() {
 							});
 						}}
 					>
+						<LogOut className="h-4 w-4 mr-2" />
 						Sign Out
 					</Button>
 				</DropdownMenuItem>
