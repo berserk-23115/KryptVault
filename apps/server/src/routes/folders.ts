@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { db, folder, folderKey, file, fileFolderKey, user, userKeypair } from "@krypt-vault/db";
+import { db, folder, folderKey, file, fileFolderKey, user, userKeypair, userSettings } from "@krypt-vault/db";
 import { eq, and, sql } from "@krypt-vault/db";
 import { z } from "zod";
 import { auth } from "@krypt-vault/auth";
@@ -443,7 +443,7 @@ app.post("/:folderId/files", async (c) => {
 // DELETE /api/folders/:folderId/files/:fileId - Remove file from folder
 app.delete("/:folderId/files/:fileId", async (c) => {
 	try {
-		const folderId = c.req.param("folderId");
+		// folderId is from the URL path but not needed in logic since we keep fileFolderKey
 		const fileId = c.req.param("fileId");
 		const userId = (c as any).get("userId") as string;
 		
@@ -463,25 +463,39 @@ app.delete("/:folderId/files/:fileId", async (c) => {
 			return c.json({ error: "File not found or access denied" }, 404);
 		}
 		
-		// Remove from folder
-		await db
-			.update(file)
-			.set({ folderId: null })
-			.where(eq(file.id, fileId));
+		// Get user's trash retention settings
+		const [settings] = await db
+			.select()
+			.from(userSettings)
+			.where(eq(userSettings.userId, userId))
+			.limit(1);
 		
-		// Delete file folder key entry
-		await db
-			.delete(fileFolderKey)
-			.where(
-				and(
-					eq(fileFolderKey.fileId, fileId),
-					eq(fileFolderKey.folderId, folderId)
-				)
-			);
+		const retentionDays = settings?.trashRetentionDays ?? 30;
+		
+		// Calculate scheduled deletion date
+		let scheduledDeletion: Date | null = null;
+		if (retentionDays > 0) {
+			scheduledDeletion = new Date();
+			scheduledDeletion.setDate(scheduledDeletion.getDate() + retentionDays);
+		}
+		
+		// Move to trash: mark as deleted instead of just removing from folder
+		await db.execute(
+			sql`UPDATE file 
+				SET deleted_at = NOW(), 
+					deleted_by = ${userId}, 
+					scheduled_deletion_at = ${scheduledDeletion}, 
+					updated_at = NOW() 
+				WHERE id = ${fileId}`
+		);
+		
+		// Note: We keep the fileFolderKey entry so the file can be restored to its folder
+		// The fileFolderKey will be cleaned up on permanent deletion
 		
 		return c.json({
 			success: true,
-			message: "File removed from folder successfully",
+			message: "File moved to trash",
+			scheduledDeletion: scheduledDeletion?.toISOString() || null,
 		});
 	} catch (error) {
 		console.error("Remove file from folder error:", error);

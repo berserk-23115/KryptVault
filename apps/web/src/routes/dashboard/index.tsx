@@ -109,10 +109,6 @@ function RouteComponent() {
 
   const handleFileClick = (file: FileMetadata) => setSelectedFile(file);
 
-  const handleFileDoubleClick = async (file: FileMetadata) => {
-    await handlePreview(file);
-  };
-
 const handleDownload = async (file: FileMetadata) => {
     let toastId: string | number | undefined;
     
@@ -373,7 +369,6 @@ const handlePreview = async (file: FileMetadata) => {
                     key={file.id}
                     file={file}
                     onClick={() => handleFileClick(file)}
-                    onDoubleClick={() => handleFileDoubleClick(file)}
                     isSelected={selectedFile?.id === file.id}
                   />
                 ))}
@@ -576,12 +571,10 @@ function Legend({ color, label }: { color: string; label: string }) {
 function FileCard({
   file,
   onClick,
-  onDoubleClick,
   isSelected,
 }: {
   file: FileMetadata;
   onClick: () => void;
-  onDoubleClick: () => void;
   isSelected?: boolean;
 }) {
   const ext = file.originalFilename.split(".").pop()?.toLowerCase();
@@ -590,7 +583,6 @@ function FileCard({
   return (
     <div
       onClick={onClick}
-      onDoubleClick={onDoubleClick}
       className={`
         group w-full flex items-center gap-4 rounded-2xl p-4 cursor-pointer
         backdrop-blur-xl transition-all border

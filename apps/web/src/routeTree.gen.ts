@@ -17,6 +17,7 @@ import { Route as DashboardTrashBinRouteImport } from './routes/dashboard/trash-
 import { Route as DashboardTempRouteImport } from './routes/dashboard/temp'
 import { Route as DashboardSharedRouteImport } from './routes/dashboard/shared'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
+import { Route as DashboardSearchRouteImport } from './routes/dashboard/search'
 import { Route as DashboardMyFilesRouteImport } from './routes/dashboard/my-files'
 import { Route as DashboardHelpGuideRouteImport } from './routes/dashboard/help-guide'
 import { Route as DashboardFoldersFolderIdRouteImport } from './routes/dashboard/folders/$folderId'
@@ -61,6 +62,11 @@ const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardSearchRoute = DashboardSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardMyFilesRoute = DashboardMyFilesRouteImport.update({
   id: '/my-files',
   path: '/my-files',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/dashboard/help-guide': typeof DashboardHelpGuideRoute
   '/dashboard/my-files': typeof DashboardMyFilesRoute
+  '/dashboard/search': typeof DashboardSearchRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/shared': typeof DashboardSharedRoute
   '/dashboard/temp': typeof DashboardTempRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/dashboard/help-guide': typeof DashboardHelpGuideRoute
   '/dashboard/my-files': typeof DashboardMyFilesRoute
+  '/dashboard/search': typeof DashboardSearchRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/shared': typeof DashboardSharedRoute
   '/dashboard/temp': typeof DashboardTempRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/dashboard/help-guide': typeof DashboardHelpGuideRoute
   '/dashboard/my-files': typeof DashboardMyFilesRoute
+  '/dashboard/search': typeof DashboardSearchRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/shared': typeof DashboardSharedRoute
   '/dashboard/temp': typeof DashboardTempRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/help-guide'
     | '/dashboard/my-files'
+    | '/dashboard/search'
     | '/dashboard/settings'
     | '/dashboard/shared'
     | '/dashboard/temp'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/help-guide'
     | '/dashboard/my-files'
+    | '/dashboard/search'
     | '/dashboard/settings'
     | '/dashboard/shared'
     | '/dashboard/temp'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/help-guide'
     | '/dashboard/my-files'
+    | '/dashboard/search'
     | '/dashboard/settings'
     | '/dashboard/shared'
     | '/dashboard/temp'
@@ -222,6 +234,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardSettingsRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/search': {
+      id: '/dashboard/search'
+      path: '/search'
+      fullPath: '/dashboard/search'
+      preLoaderRoute: typeof DashboardSearchRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/my-files': {
       id: '/dashboard/my-files'
       path: '/my-files'
@@ -249,6 +268,7 @@ declare module '@tanstack/react-router' {
 interface DashboardRouteRouteChildren {
   DashboardHelpGuideRoute: typeof DashboardHelpGuideRoute
   DashboardMyFilesRoute: typeof DashboardMyFilesRoute
+  DashboardSearchRoute: typeof DashboardSearchRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardSharedRoute: typeof DashboardSharedRoute
   DashboardTempRoute: typeof DashboardTempRoute
@@ -260,6 +280,7 @@ interface DashboardRouteRouteChildren {
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardHelpGuideRoute: DashboardHelpGuideRoute,
   DashboardMyFilesRoute: DashboardMyFilesRoute,
+  DashboardSearchRoute: DashboardSearchRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardSharedRoute: DashboardSharedRoute,
   DashboardTempRoute: DashboardTempRoute,

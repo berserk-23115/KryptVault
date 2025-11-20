@@ -4,6 +4,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import {
   getFolderDetails,
+  removeFileFromFolder,
   type FolderDetails,
   type FolderFile,
 } from "@/lib/folders-api";
@@ -21,6 +22,7 @@ import {
 import {
   downloadAndDecryptSharedFile,
   unwrapSharedDek,
+  unwrapDekWithFolderKey,
 } from "@/lib/tauri-crypto";
 import { FileSidebar } from "@/components/FileSidebar";
 import {
@@ -66,6 +68,31 @@ function RouteComponent() {
       setError(null);
       const details = await getFolderDetails(folderId);
       setFolderDetails(details);
+      
+      // Unwrap and store folder key in localStorage for file downloads
+      const userKeysStr = localStorage.getItem("userKeypair");
+      if (userKeysStr && details.folder.wrappedFolderKey) {
+        try {
+          const userKeys = JSON.parse(userKeysStr);
+          const userPublicKey = userKeys.x25519PublicKey || userKeys.x25519_public_key;
+          const userPrivateKey = userKeys.x25519PrivateKey || userKeys.x25519_private_key;
+          
+          if (userPublicKey && userPrivateKey) {
+            // Unwrap the folder key
+            const folderKey = await unwrapSharedDek(
+              details.folder.wrappedFolderKey,
+              userPublicKey,
+              userPrivateKey
+            );
+            
+            // Store the unwrapped folder key
+            localStorage.setItem(`folderKey_${folderId}`, folderKey);
+          }
+        } catch (keyErr) {
+          console.error("Failed to unwrap folder key:", keyErr);
+          // Don't fail the entire load if folder key unwrapping fails
+        }
+      }
     } catch (err) {
       console.error("Failed to load folder details:", err);
       setError(err instanceof Error ? err.message : "Failed to load folder");
@@ -83,26 +110,6 @@ function RouteComponent() {
 
     try {
       setError(null);
-
-      // Get user's keypair from localStorage
-      const userKeysStr = localStorage.getItem("userKeypair");
-      if (!userKeysStr) {
-        throw new Error(
-          "Encryption keys not found. Please set up your keypair first."
-        );
-      }
-
-      const userKeys = JSON.parse(userKeysStr);
-      const userPublicKey =
-        userKeys.x25519PublicKey || userKeys.x25519_public_key;
-      const userPrivateKey =
-        userKeys.x25519PrivateKey || userKeys.x25519_private_key;
-
-      if (!userPublicKey || !userPrivateKey) {
-        throw new Error(
-          "Invalid keypair data. Please regenerate your encryption keys."
-        );
-      }
 
       // Open save dialog
       const savePath = await save({
@@ -123,17 +130,40 @@ function RouteComponent() {
         throw new Error("Folder key not found. Please reload the folder.");
       }
 
-      // Unwrap the DEK using folder key
+      // Unwrap the DEK using folder key (symmetric encryption)
       toast.loading(`Downloading ${file.originalFilename}...`, {
         id: toastId,
         description: "Unwrapping encryption key...",
       });
 
-      const dekBase64 = await unwrapSharedDek(
-        file.wrappedDek,
-        userPublicKey,
-        userPrivateKey
-      );
+      const dekBase64 = await unwrapDekWithFolderKey({
+        wrapped_dek: file.wrappedDek,
+        wrapping_nonce: file.wrappingNonce,
+        folder_key_b64: folderKeyStr,
+      });
+
+      // Get download URL for the file from S3
+      toast.loading(`Downloading ${file.originalFilename}...`, {
+        id: toastId,
+        description: "Getting download URL...",
+      });
+
+      // Generate presigned URL from S3 key
+      const API_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
+      const token = localStorage.getItem("bearer_token");
+      
+      const response = await fetch(`${API_URL}/api/files/${file.fileId}/download-url`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to get download URL");
+      }
+
+      const { downloadUrl } = await response.json();
 
       // Download and decrypt using the unwrapped DEK
       toast.loading(`Downloading ${file.originalFilename}...`, {
@@ -142,7 +172,7 @@ function RouteComponent() {
       });
 
       await downloadAndDecryptSharedFile(
-        `${file.s3Key}`, // This would need to be a presigned URL from the API
+        downloadUrl,
         dekBase64,
         file.nonce,
         savePath
@@ -169,6 +199,36 @@ function RouteComponent() {
           description: errorMessage,
         });
       }
+    }
+  };
+
+  const handleDelete = async (file: FolderFile) => {
+    const toastId = toast.loading(`Removing ${file.originalFilename} from folder...`);
+    
+    try {
+      setError(null);
+      await removeFileFromFolder(folderId, file.fileId);
+      
+      // Reload folder details to update the file list
+      await loadFolderDetails();
+      
+      // Clear selected file
+      setSelectedFile(null);
+      
+      toast.success("File removed from folder", {
+        id: toastId,
+        description: `${file.originalFilename} has been removed from the folder successfully.`,
+      });
+    } catch (err) {
+      console.error("Delete error:", err);
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to remove file from folder";
+      setError(errorMessage);
+      
+      toast.error("Failed to remove file", {
+        id: toastId,
+        description: errorMessage,
+      });
     }
   };
 
@@ -409,7 +469,10 @@ function RouteComponent() {
                             >
                               Download
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer">
+                            <DropdownMenuItem 
+                              onClick={() => handleDelete(file)}
+                              className="hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer text-red-600 dark:text-red-400"
+                            >
                               Remove from Folder
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -492,7 +555,7 @@ function RouteComponent() {
           onClose={() => setSelectedFile(null)}
           onPreview={() => handleDownload(selectedFile)}
           onDownload={() => handleDownload(selectedFile)}
-          onDelete={() => {}}
+          onDelete={() => handleDelete(selectedFile)}
           onShare={() => {}}
           ownerName={folderDetails?.folder.ownerName || folderDetails?.folder.ownerEmail || "Unknown"}
           showShareButton={false}

@@ -630,9 +630,6 @@ function RouteComponent() {
                     setSelectedFolder(null);
                     setSelectedFile(file);
                   }}
-                  onDoubleClick={() =>
-                    navigate({ to: `/dashboard/files/${file.id}` })
-                  }
                 />
               ))}
             </div>
@@ -704,12 +701,10 @@ function RouteComponent() {
 function FileCard({
   file,
   onClick,
-  onDoubleClick,
   isSelected,
 }: {
   file: FileMetadata;
   onClick: () => void;
-  onDoubleClick: () => void;
   isSelected?: boolean;
 }) {
   const ext = file.originalFilename.split(".").pop()?.toLowerCase();
@@ -718,7 +713,6 @@ function FileCard({
   return (
     <div
       onClick={onClick}
-      onDoubleClick={onDoubleClick}
       className={`
         group w-full flex items-center gap-4 rounded-2xl p-4 cursor-pointer
         backdrop-blur-xl transition-all border

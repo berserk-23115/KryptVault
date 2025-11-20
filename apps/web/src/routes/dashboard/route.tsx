@@ -35,6 +35,7 @@ import {
   Outlet,
   Link,
   useRouterState,
+  useNavigate,
 } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,6 +101,8 @@ function RouteComponent() {
     "file" | "folder" | null
   >(null);
   const [newMenuOpen, setNewMenuOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const navigate = useNavigate();
 
   // FILE UPLOAD (single/multi) – functionality same
   const handleFileUpload = async () => {
@@ -382,6 +385,13 @@ function RouteComponent() {
                 <SearchIcon className="h-4 w-4 dark:text-purple-200/80" />
                 <Input
                   placeholder="Search in Vault..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter" && searchQuery.trim()) {
+                      navigate({ to: "/dashboard/search", search: { query: searchQuery } });
+                    }
+                  }}
                   className="w-full border-0 focus-visible:ring-0 focus-visible:outline-none text-xs sm:text-sm dark:placeholder:text-zinc-400 text-zinc-900 dark:placeholder:text-zinc-500 dark:text-zinc-100 dark:bg-transparent"
                 />
               </div>

@@ -130,10 +130,6 @@ function RouteComponent() {
     setSelectedSharedByMeFile(null);
   };
 
-  const handleFileDoubleClick = async (file: SharedFile) => {
-    await handlePreview(file);
-  };
-
   const handleDownload = async (file: SharedFile) => {
     let toastId: string | number | undefined;
 
@@ -591,7 +587,6 @@ function RouteComponent() {
                               : ""
                           }`}
                           onClick={() => handleFileClick(file)}
-                          onDoubleClick={() => handleFileDoubleClick(file)}
                         >
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
@@ -628,7 +623,6 @@ function RouteComponent() {
                     <div
                       key={file.fileId}
                       onClick={() => handleFileClick(file)}
-                      onDoubleClick={() => handleFileDoubleClick(file)}
                       className={`rounded-xl overflow-hidden shadow-md border 
                       ${
                         selectedFile?.fileId === file.fileId
