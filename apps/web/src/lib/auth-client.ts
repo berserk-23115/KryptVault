@@ -1,6 +1,6 @@
 import type { auth } from "@krypt-vault/auth";
 import { createAuthClient } from "better-auth/react";
-import { inferAdditionalFields } from "better-auth/client/plugins";
+import { inferAdditionalFields, passkeyClient } from "better-auth/client/plugins";
 
 const baseURL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 
@@ -12,7 +12,7 @@ console.log("Auth Client Configuration:", {
 
 export const authClient = createAuthClient({
   baseURL,
-  plugins: [inferAdditionalFields<typeof auth>()],
+  plugins: [inferAdditionalFields<typeof auth>(), passkeyClient()],
   fetchOptions: {
     onSuccess: (ctx) => {
       if (typeof window === "undefined") return;
@@ -32,11 +32,6 @@ export const authClient = createAuthClient({
         statusText: ctx.response.statusText,
         url: ctx.response.url,
       });
-
-      // Log response body for debugging
-      ctx.response.clone().text().then((text) => {
-        console.error("❌ Response body:", text);
-      }).catch(() => {});
 
       // Clear the token on authentication errors (401)
       if (ctx.response.status === 401) {

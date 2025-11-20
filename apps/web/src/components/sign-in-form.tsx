@@ -1,14 +1,16 @@
 import { authClient } from "@/lib/auth-client";
+import { getPasskeyAutofillPreference } from "@/lib/passkey-preferences";
+import { isTauriContext } from "@/lib/platform-detection";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import z from "zod";
 import Loader from "./loader";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Checkbox } from "./ui/checkbox";
-import { Badge, Fingerprint } from "lucide-react";
+import { Fingerprint, Loader2 } from "lucide-react";
 
 export default function SignInForm({
   onSwitchToSignUp,
@@ -19,6 +21,9 @@ export default function SignInForm({
     from: "/",
   });
   const { isPending } = authClient.useSession();
+  const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
+  const [conditionalUISupported, setConditionalUISupported] = useState<boolean>(true);
+  const [isTauri, setIsTauri] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -55,6 +60,111 @@ export default function SignInForm({
       }
     },
   });
+
+  useEffect(() => {
+    // Check if running in Tauri
+    const checkPlatform = () => {
+      setIsTauri(isTauriContext());
+    };
+    checkPlatform();
+  }, []);
+
+  useEffect(() => {
+    // Skip passkey setup in Tauri
+    if (isTauri) {
+      setConditionalUISupported(false);
+      return;
+    }
+
+    if (typeof window === "undefined" || !window.PublicKeyCredential) {
+      setConditionalUISupported(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const setupConditionalUI = async () => {
+      try {
+        const available = await window.PublicKeyCredential
+          .isConditionalMediationAvailable?.();
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!available) {
+          setConditionalUISupported(false);
+          return;
+        }
+
+        setConditionalUISupported(true);
+
+        const shouldAttemptAutoFill = getPasskeyAutofillPreference();
+        if (!shouldAttemptAutoFill) {
+          return;
+        }
+
+        await authClient.signIn.passkey(
+          {
+            autoFill: true,
+          },
+          {
+            onSuccess: () => {
+              toast.success("Signed in with your saved passkey");
+              navigate({ to: "/dashboard" });
+            },
+            onError: (error) => {
+              console.warn("Passkey auto-fill failed", error);
+            },
+          },
+        );
+      } catch (error) {
+        if (!cancelled) {
+          console.warn("Conditional UI setup failed", error);
+          setConditionalUISupported(false);
+        }
+      }
+    };
+
+    void setupConditionalUI();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, isTauri]);
+
+  const handlePasskeySignIn = async () => {
+    if (isTauri) {
+      toast.error("Passkeys are not supported in the desktop app. Please use the web version.");
+      return;
+    }
+
+    if (typeof window === "undefined" || !window.PublicKeyCredential) {
+      toast.error("Passkeys are not supported in this environment");
+      return;
+    }
+
+    setIsPasskeyLoading(true);
+    try {
+      await authClient.signIn.passkey(
+        {},
+        {
+          onSuccess: () => {
+            toast.success("Signed in with passkey");
+            navigate({ to: "/dashboard" });
+          },
+          onError: (error) => {
+            toast.error(error.error.message || "Passkey sign-in failed");
+          },
+        },
+      );
+    } catch (error) {
+      console.error("Passkey sign-in error", error);
+      toast.error("Passkey sign-in failed");
+    } finally {
+      setIsPasskeyLoading(false);
+    }
+  };
 
   if (isPending) {
     return <Loader />;
@@ -119,6 +229,7 @@ export default function SignInForm({
                 onChange={(e) => field.handleChange(e.target.value)}
                 className="h-11 rounded-lg text-base px-3.5"
                 placeholder="you@example.com"
+                autoComplete="username webauthn"
               />
               {field.state.meta.errors.length > 0 && (
                 <p className="text-red-500 dark:text-red-400 text-sm mt-1">
@@ -148,6 +259,7 @@ export default function SignInForm({
                 onChange={(e) => field.handleChange(e.target.value)}
                 className="h-11 rounded-lg text-base px-3.5"
                 placeholder="••••••••"
+                autoComplete="current-password webauthn"
               />
               {field.state.meta.errors.length > 0 && (
                 <p className="text-red-500 dark:text-red-400 text-sm mt-1">
@@ -199,28 +311,52 @@ export default function SignInForm({
           )}
         </form.Subscribe>
 
-        {/* Divider */}
-        <div className="flex items-center my-4">
-          <div className="grow border-t border-gray-300 dark:border-gray-700"></div>
-          <span className="mx-3 text-gray-500 dark:text-gray-400 text-xs">
-            or Sign In with
-          </span>
-          <div className="grow border-t border-gray-300 dark:border-gray-700"></div>
-        </div>
+        {/* Divider - Only show if not in Tauri */}
+        {!isTauri && (
+          <>
+            <div className="flex items-center my-4">
+              <div className="grow border-t border-gray-300 dark:border-gray-700"></div>
+              <span className="mx-3 text-gray-500 dark:text-gray-400 text-xs">
+                or Sign In with
+              </span>
+              <div className="grow border-t border-gray-300 dark:border-gray-700"></div>
+            </div>
 
-        {/* Sign in with Passkey */}
-        <div className="relative w-full">
-          <Button
-            type="button"
-            onClick={() => toast.info("Passkey sign-in coming soon!")}
-            variant={"outline"}
-            className="h-11 w-full text-sm font-semibold rounded-lg"
-          >
-            <Fingerprint className="w-4 h-4" />
-            Passkey
-          </Button>
-        </div>
+            {/* Sign in with Passkey */}
+            <div className="relative w-full">
+              <Button
+                type="button"
+                onClick={handlePasskeySignIn}
+                variant={"outline"}
+                className="h-11 w-full text-sm font-semibold rounded-lg"
+                disabled={isPasskeyLoading}
+              >
+                {isPasskeyLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Fingerprint className="w-4 h-4" />
+                )}
+                {isPasskeyLoading ? "Signing in..." : "Passkey"}
+              </Button>
+              {!conditionalUISupported && (
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Your browser does not support passkey autofill yet, but you can still
+                  use the button above to sign in.
+                </p>
+              )}
+            </div>
+          </>
+        )}
       </form>
+      
+      {/* Tauri notice */}
+      {isTauri && (
+        <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950">
+          <p className="text-xs text-blue-700 dark:text-blue-300">
+            <strong>Desktop App:</strong> Passkey sign-in is not available. Use email and password to continue.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
