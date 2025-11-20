@@ -2,7 +2,7 @@ import { authClient } from "@/lib/auth-client";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { filesApi, type FileMetadata } from "@/lib/files-api";
+import { filesApi, type FileMetadata, type StorageUsage } from "@/lib/files-api";
 import { save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { FileSidebar } from "@/components/FileSidebar";
@@ -72,6 +72,7 @@ function RouteComponent() {
   const [selectedFile, setSelectedFile] = React.useState<FileMetadata | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const [storageUsage, setStorageUsage] = React.useState<StorageUsage | null>(null);
 
   const { hasKeypair, checking: checkingKeypair, recheckKeypair } = useKeypairCheck();
   const [showKeypairSetup, setShowKeypairSetup] = React.useState(false);
@@ -101,17 +102,23 @@ function RouteComponent() {
     }
   };
 
+  const loadStorageUsage = async () => {
+    try {
+      const usage = await filesApi.getStorageUsage();
+      setStorageUsage(usage);
+    } catch (err) {
+      console.error("Failed to load storage usage:", err);
+    }
+  };
+
   React.useEffect(() => {
     loadFiles();
+    loadStorageUsage();
   }, []);
 
   // --- Download / Preview / Delete Logic (unchanged) ---
 
   const handleFileClick = (file: FileMetadata) => setSelectedFile(file);
-
-  const handleFileDoubleClick = async (file: FileMetadata) => {
-    await handlePreview(file);
-  };
 
 const handleDownload = async (file: FileMetadata) => {
     let toastId: string | number | undefined;
@@ -298,6 +305,7 @@ const handlePreview = async (file: FileMetadata) => {
       setError(null);
       await filesApi.deleteFile(file.id);
       await loadFiles();
+      await loadStorageUsage(); // Refresh storage usage
       setSelectedFile(null);
       
       toast.success("File deleted", {
@@ -324,19 +332,66 @@ const handlePreview = async (file: FileMetadata) => {
         <div className="w-full rounded-xl p-6 shadow-lg border 
           border-neutral-300 dark:border-neutral-700 
           bg-white/50 dark:bg-white/10 backdrop-blur-xl">
-          <h2 className="text-xl font-semibold mb-4">Storage</h2>
-          <div className="w-full h-4 rounded-full overflow-hidden flex bg-neutral-200 dark:bg-neutral-700">
-            <div className="bg-blue-500" style={{ width: "10%" }} />
-            <div className="bg-red-500" style={{ width: "20%" }} />
-            <div className="bg-green-500" style={{ width: "15%" }} />
-            <div className="bg-yellow-500" style={{ width: "55%" }} />
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Storage</h2>
+            {storageUsage && (
+              <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                {formatFileSize(storageUsage.usedBytes)} / {formatFileSize(storageUsage.quotaBytes)}
+                {" "}({storageUsage.usedPercentage.toFixed(1)}% used)
+              </span>
+            )}
           </div>
-          <div className="flex gap-8 mt-4 text-sm">
-            <Legend color="bg-blue-500" label="Images (10%)" />
-            <Legend color="bg-red-500" label="Videos (20%)" />
-            <Legend color="bg-green-500" label="Documents (15%)" />
-            <Legend color="bg-yellow-500" label="Others (55%)" />
-          </div>
+          
+          {storageUsage ? (
+            <>
+              <div className="w-full h-4 rounded-full overflow-hidden flex bg-neutral-200 dark:bg-neutral-700">
+                {storageUsage.breakdown.images > 0 && (
+                  <div 
+                    className="bg-blue-500" 
+                    style={{ width: `${(storageUsage.breakdown.images / storageUsage.quotaBytes) * 100}%` }} 
+                  />
+                )}
+                {storageUsage.breakdown.videos > 0 && (
+                  <div 
+                    className="bg-red-500" 
+                    style={{ width: `${(storageUsage.breakdown.videos / storageUsage.quotaBytes) * 100}%` }} 
+                  />
+                )}
+                {storageUsage.breakdown.documents > 0 && (
+                  <div 
+                    className="bg-green-500" 
+                    style={{ width: `${(storageUsage.breakdown.documents / storageUsage.quotaBytes) * 100}%` }} 
+                  />
+                )}
+                {storageUsage.breakdown.others > 0 && (
+                  <div 
+                    className="bg-yellow-500" 
+                    style={{ width: `${(storageUsage.breakdown.others / storageUsage.quotaBytes) * 100}%` }} 
+                  />
+                )}
+              </div>
+              <div className="flex gap-8 mt-4 text-sm">
+                <Legend 
+                  color="bg-blue-500" 
+                  label={`Images (${((storageUsage.breakdown.images / storageUsage.quotaBytes) * 100).toFixed(1)}%)`} 
+                />
+                <Legend 
+                  color="bg-red-500" 
+                  label={`Videos (${((storageUsage.breakdown.videos / storageUsage.quotaBytes) * 100).toFixed(1)}%)`} 
+                />
+                <Legend 
+                  color="bg-green-500" 
+                  label={`Documents (${((storageUsage.breakdown.documents / storageUsage.quotaBytes) * 100).toFixed(1)}%)`} 
+                />
+                <Legend 
+                  color="bg-yellow-500" 
+                  label={`Others (${((storageUsage.breakdown.others / storageUsage.quotaBytes) * 100).toFixed(1)}%)`} 
+                />
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-4 text-neutral-500">Loading storage info...</div>
+          )}
         </div>
 
         {/* File Upload */}
@@ -373,7 +428,6 @@ const handlePreview = async (file: FileMetadata) => {
                     key={file.id}
                     file={file}
                     onClick={() => handleFileClick(file)}
-                    onDoubleClick={() => handleFileDoubleClick(file)}
                     isSelected={selectedFile?.id === file.id}
                   />
                 ))}
@@ -399,9 +453,9 @@ const handlePreview = async (file: FileMetadata) => {
             }
             setShareDialogOpen(true);
           }}
-          ownerName={session.data?.user?.name || session.data?.user?.email || "Unknown"}
+          ownerName={selectedFile.ownerName || selectedFile.ownerEmail || "Unknown"}
           showShareButton={true}
-          isSharedFile={false}
+          isSharedFile={selectedFile.isOwner === false}
         />
       )}
 
@@ -413,6 +467,7 @@ const handlePreview = async (file: FileMetadata) => {
           fileId={selectedFile.id}
           fileName={selectedFile.originalFilename}
           wrappedDek={selectedFile.wrappedDek || ""}
+          currentUserId={session.data?.user?.id}
           onShareComplete={() => {
             loadFiles();
           }}
@@ -432,136 +487,136 @@ const handlePreview = async (file: FileMetadata) => {
   );
 }
 
-    return (
-    <main className="flex h-full overflow-hidden bg-gradient-to-b
-      from-slate-50 via-white to-slate-100
-      dark:from-black dark:via-slate-950 dark:to-black
-      transition-colors">
+//     return (
+//     <main className="flex h-full overflow-hidden bg-gradient-to-b
+//       from-slate-50 via-white to-slate-100
+//       dark:from-black dark:via-slate-950 dark:to-black
+//       transition-colors">
 
-      {/* MAIN CONTENT */}
-      <div className="flex-1 overflow-y-auto p-6">
+//       {/* MAIN CONTENT */}
+//       <div className="flex-1 overflow-y-auto p-6">
 
-        {/* STORAGE CARD */}
-        <div className={`w-full rounded-xl p-6 backdrop-blur-xl ${cardLight} ${cardDark}`}>
-          <h2 className="text-xl font-semibold mb-4">Storage</h2>
+//         {/* STORAGE CARD */}
+//         <div className={`w-full rounded-xl p-6 backdrop-blur-xl ${cardLight} ${cardDark}`}>
+//           <h2 className="text-xl font-semibold mb-4">Storage</h2>
 
-          {/* Storage Bar */}
-          {/* STORAGE BAR – MODERN GLOW */}
-          <div className="flex mt-4 rounded-full text-sm text-slate-700 dark:text-slate-300 h-4 bg-slate-200/40 dark:bg-slate-800/40 border border-white/20 dark:border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.25),0_0_15px_rgba(168,85,247,0.35)]">
-              <div
-                className="flex left-0 top-0 rounded-l-xl h-full 
-                  bg-indigo-500
-                  transition-all duration-500"
-                style={{ width: "10%" }}
-              />
-              <div
-                className="flex left-0 top-0 h-full 
-                  bg-purple-600
-                  transition-all duration-500"
-                style={{ width: "12%" }}
-              />
-              <div
-                className="flex left-0 top-0 h-full 
-                  bg-green-600
-                  transition-all duration-500"
-                style={{ width: "5%" }}
-              />
-              <div
-                className="left-27 rounded-r-xl bg-yellow-600"
-                style={{ width: "25%" }}
-              />
-          </div>
+//           {/* Storage Bar */}
+//           {/* STORAGE BAR – MODERN GLOW */}
+//           <div className="flex mt-4 rounded-full text-sm text-slate-700 dark:text-slate-300 h-4 bg-slate-200/40 dark:bg-slate-800/40 border border-white/20 dark:border-white/10 shadow-[0_0_10px_rgba(255,255,255,0.25),0_0_15px_rgba(168,85,247,0.35)]">
+//               <div
+//                 className="flex left-0 top-0 rounded-l-xl h-full 
+//                   bg-indigo-500
+//                   transition-all duration-500"
+//                 style={{ width: "10%" }}
+//               />
+//               <div
+//                 className="flex left-0 top-0 h-full 
+//                   bg-purple-600
+//                   transition-all duration-500"
+//                 style={{ width: "12%" }}
+//               />
+//               <div
+//                 className="flex left-0 top-0 h-full 
+//                   bg-green-600
+//                   transition-all duration-500"
+//                 style={{ width: "5%" }}
+//               />
+//               <div
+//                 className="left-27 rounded-r-xl bg-yellow-600"
+//                 style={{ width: "25%" }}
+//               />
+//           </div>
 
 
-          <div className="flex gap-8 mt-4 text-sm text-slate-700 dark:text-slate-300">
-            <Legend color="bg-indigo-500" label="Images (10%)" />
-            <Legend color="bg-purple-500" label="Videos (12%)" />
-            <Legend color="bg-green-500" label="Documents (5%)" />
-            <Legend color="bg-yellow-400" label="Others (25%)" />
-          </div>
-        </div>
+//           <div className="flex gap-8 mt-4 text-sm text-slate-700 dark:text-slate-300">
+//             <Legend color="bg-indigo-500" label="Images (10%)" />
+//             <Legend color="bg-purple-500" label="Videos (12%)" />
+//             <Legend color="bg-green-500" label="Documents (5%)" />
+//             <Legend color="bg-yellow-400" label="Others (25%)" />
+//           </div>
+//         </div>
 
-        {/* ERRORS */}
-        {error && (
-          <div className="mt-4 p-4 bg-red-500/10 border border-red-500 rounded-lg text-red-500">
-            {error}
-          </div>
-        )}
+//         {/* ERRORS */}
+//         {error && (
+//           <div className="mt-4 p-4 bg-red-500/10 border border-red-500 rounded-lg text-red-500">
+//             {error}
+//           </div>
+//         )}
 
-        {/* RECENT FILES */}
-        <section className="mt-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold">Recent Files</h2>
-          </div>
+//         {/* RECENT FILES */}
+//         <section className="mt-8">
+//           <div className="flex items-center justify-between mb-4">
+//             <h2 className="text-2xl font-bold">Recent Files</h2>
+//           </div>
 
-          {loading ? (
-            <div className="text-center py-12 text-slate-500">Loading files...</div>
-          ) : files.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
-              No files yet. Upload your first file!
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-              {files.slice(0, 12).map((file) => (
-                <FileCard
-                  key={file.id}
-                  file={file}
-                  onClick={() => handleFileClick(file)}
-                  onDoubleClick={() => handleFileDoubleClick(file)}
-                  isSelected={selectedFile?.id === file.id}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
+//           {loading ? (
+//             <div className="text-center py-12 text-slate-500">Loading files...</div>
+//           ) : files.length === 0 ? (
+//             <div className="text-center py-12 text-slate-500">
+//               No files yet. Upload your first file!
+//             </div>
+//           ) : (
+//             <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+//               {files.slice(0, 12).map((file) => (
+//                 <FileCard
+//                   key={file.id}
+//                   file={file}
+//                   onClick={() => handleFileClick(file)}
+//                   onDoubleClick={() => handleFileDoubleClick(file)}
+//                   isSelected={selectedFile?.id === file.id}
+//                 />
+//               ))}
+//             </div>
+//           )}
+//         </section>
+//       </div>
 
-      {/* SIDEBAR FOR SELECTED FILE */}
-      {selectedFile && (
-        <FileSidebar
-          file={selectedFile}
-          onClose={() => setSelectedFile(null)}
-          onPreview={handlePreview}
-          onDownload={handleDownload}
-          onDelete={handleDelete}
-          onShare={() => {
-            if (!hasKeypair) {
-              toast.error("Please set up encryption first");
-              setShowKeypairSetup(true);
-              return;
-            }
-            setShareDialogOpen(true);
-          }}
-          ownerName={session.data?.user?.name || session.data?.user?.email || "Unknown"}
-          showShareButton
-          isSharedFile={false}
-        />
-      )}
+//       {/* SIDEBAR FOR SELECTED FILE */}
+//       {selectedFile && (
+//         <FileSidebar
+//           file={selectedFile}
+//           onClose={() => setSelectedFile(null)}
+//           onPreview={handlePreview}
+//           onDownload={handleDownload}
+//           onDelete={handleDelete}
+//           onShare={() => {
+//             if (!hasKeypair) {
+//               toast.error("Please set up encryption first");
+//               setShowKeypairSetup(true);
+//               return;
+//             }
+//             setShareDialogOpen(true);
+//           }}
+//           ownerName={session.data?.user?.name || session.data?.user?.email || "Unknown"}
+//           showShareButton
+//           isSharedFile={false}
+//         />
+//       )}
 
-      {/* SHARE DIALOG */}
-      {selectedFile && (
-        <ShareFileDialog
-          open={shareDialogOpen}
-          onOpenChange={setShareDialogOpen}
-          fileId={selectedFile.id}
-          fileName={selectedFile.originalFilename}
-          wrappedDek={selectedFile.wrappedDek || ""}
-          onShareComplete={loadFiles}
-        />
-      )}
+//       {/* SHARE DIALOG */}
+//       {selectedFile && (
+//         <ShareFileDialog
+//           open={shareDialogOpen}
+//           onOpenChange={setShareDialogOpen}
+//           fileId={selectedFile.id}
+//           fileName={selectedFile.originalFilename}
+//           wrappedDek={selectedFile.wrappedDek || ""}
+//           onShareComplete={loadFiles}
+//         />
+//       )}
 
-      {/* KEYPAIR SETUP DIALOG */}
-      <KeypairSetupDialog
-        open={showKeypairSetup}
-        onComplete={() => {
-          setShowKeypairSetup(false);
-          recheckKeypair();
-          toast.success("You can now share files securely!");
-        }}
-      />
-    </main>
-  );
-}
+//       {/* KEYPAIR SETUP DIALOG */}
+//       <KeypairSetupDialog
+//         open={showKeypairSetup}
+//         onComplete={() => {
+//           setShowKeypairSetup(false);
+//           recheckKeypair();
+//           toast.success("You can now share files securely!");
+//         }}
+//       />
+//     </main>
+//   );
+// }
 
 function Legend({ color, label }: { color: string; label: string }) {
   return (
@@ -575,12 +630,10 @@ function Legend({ color, label }: { color: string; label: string }) {
 function FileCard({
   file,
   onClick,
-  onDoubleClick,
   isSelected,
 }: {
   file: FileMetadata;
   onClick: () => void;
-  onDoubleClick: () => void;
   isSelected?: boolean;
 }) {
   const ext = file.originalFilename.split(".").pop()?.toLowerCase();
@@ -589,7 +642,6 @@ function FileCard({
   return (
     <div
       onClick={onClick}
-      onDoubleClick={onDoubleClick}
       className={`
         group w-full flex items-center gap-4 rounded-2xl p-4 cursor-pointer
         backdrop-blur-xl transition-all border

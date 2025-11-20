@@ -74,6 +74,11 @@ export const folder = pgTable("folder", {
 	
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 	updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	
+	// Trash/soft delete fields
+	deletedAt: timestamp("deleted_at"), // When folder was moved to trash
+	deletedBy: text("deleted_by").references(() => user.id), // Who deleted it
+	scheduledDeletionAt: timestamp("scheduled_deletion_at"), // When to permanently delete
 });
 
 // Folder keys - wrapped folder DEKs for each user with access

@@ -67,10 +67,6 @@ function RouteComponent() {
     setSelectedFile(file);
   };
 
-  const handleFileDoubleClick = async (file: FileMetadata) => {
-    await handlePreview(file);
-  };
-
   const handleDownload = async (file: FileMetadata) => {
     let toastId: string | number | undefined;
     
@@ -331,7 +327,6 @@ function RouteComponent() {
                     key={file.id}
                     file={file}
                     onClick={() => handleFileClick(file)}
-                    onDoubleClick={() => handleFileDoubleClick(file)}
                     isSelected={selectedFile?.id === file.id}
                   />
                 ))}
@@ -357,9 +352,9 @@ function RouteComponent() {
             }
             setShareDialogOpen(true);
           }}
-          ownerName={session.data?.user?.name || session.data?.user?.email || "Unknown"}
+          ownerName={selectedFile.ownerName || selectedFile.ownerEmail || "Unknown"}
           showShareButton={true}
-          isSharedFile={false}
+          isSharedFile={selectedFile.isOwner === false}
         />
       )}
 
@@ -371,6 +366,7 @@ function RouteComponent() {
           fileId={selectedFile.id}
           fileName={selectedFile.originalFilename}
           wrappedDek={selectedFile.wrappedDek || ""}
+          currentUserId={session.data?.user?.id}
           onShareComplete={() => {
             loadFiles();
           }}
@@ -402,13 +398,11 @@ function Legend({ color, label }: { color: string; label: string }) {
 
 function FileCard({ 
   file, 
-  onClick, 
-  onDoubleClick,
+  onClick,
   isSelected 
 }: { 
   file: FileMetadata; 
   onClick: () => void;
-  onDoubleClick: () => void;
   isSelected?: boolean;
 }) {
   const getFileIcon = (filename: string) => {
@@ -432,7 +426,6 @@ function FileCard({
   return (
     <div
       onClick={onClick}
-      onDoubleClick={onDoubleClick}
       className={`rounded-xl overflow-hidden shadow-md border 
       ${isSelected ? 'border-purple-500 ring-2 ring-purple-500' : 'border-neutral-300 dark:border-neutral-700'}
       bg-white dark:bg-purple-900/20 

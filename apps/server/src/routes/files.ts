@@ -1,25 +1,13 @@
 import { Hono } from "hono";
-import { db, file, fileKey, userSettings } from "@krypt-vault/db";
+import { db, file, fileKey, user } from "@krypt-vault/db";
 import { eq, and, desc, sql } from "@krypt-vault/db";
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 import sodium from "libsodium-wrappers";
 import { auth } from "@krypt-vault/auth";
-
-// Initialize S3 client for MinIO
-const s3Client = new S3Client({
-	region: process.env.AWS_REGION || "us-east-1",
-	endpoint: process.env.AWS_S3_ENDPOINT || "http://localhost:9200",
-	credentials: {
-		accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-		secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-	},
-	forcePathStyle: true, // Required for MinIO
-});
-
-const BUCKET_NAME = process.env.AWS_S3_BUCKET || "krypt-vault-files";
+import { s3Client, s3Presigner, BUCKET_NAME } from "../lib/s3";
 
 // Server keypair for sealing/unsealing DEKs (should be stored securely in production)
 let SERVER_PUBLIC_KEY: string;
@@ -75,10 +63,6 @@ const uploadCompleteSchema = z.object({
 	folderId: z.string().optional(), // Optional folder assignment
 });
 
-const downloadRequestSchema = z.object({
-	fileId: z.string(),
-});
-
 // Middleware to extract user from session
 app.use("*", async (c, next) => {
 	console.log(`🔍 Files route middleware: ${c.req.method} ${c.req.path}`);
@@ -121,6 +105,118 @@ app.get("/server-public-key", (c) => {
 	});
 });
 
+// GET /api/files/storage-usage - Get current storage usage and quota
+app.get("/storage-usage", async (c) => {
+	try {
+		const userId = (c as any).get("userId") as string;
+		
+		const STORAGE_QUOTA = 1_073_741_824; // 1GB in bytes
+		
+		// Calculate current storage usage (excluding deleted files)
+		const storageResult = await db
+			.select({ totalSize: sql<number>`COALESCE(SUM(${file.fileSize}), 0)` })
+			.from(file)
+			.where(
+				and(
+					eq(file.userId, userId),
+					sql`${file}.deleted_at IS NULL`
+				)
+			);
+		
+		const usedBytes = Number(storageResult[0]?.totalSize || 0);
+		
+		// Calculate file counts by type
+		const fileStats = await db
+			.select({
+				mimeType: file.mimeType,
+				originalFilename: file.originalFilename,
+				totalSize: sql<number>`SUM(${file.fileSize})`,
+				count: sql<number>`COUNT(*)`,
+			})
+			.from(file)
+			.where(
+				and(
+					eq(file.userId, userId),
+					sql`${file}.deleted_at IS NULL`
+				)
+			)
+			.groupBy(file.mimeType, file.originalFilename);
+		
+		// Categorize files
+		let imageBytes = 0;
+		let videoBytes = 0;
+		let documentBytes = 0;
+		let otherBytes = 0;
+		
+		// Helper function to detect category from filename if MIME type is missing
+		function getCategoryFromFilename(filename: string): string {
+			const ext = filename.split('.').pop()?.toLowerCase() || '';
+			
+			const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
+			const videoExts = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'];
+			const docExts = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'odt'];
+			
+			if (imageExts.includes(ext)) return 'image';
+			if (videoExts.includes(ext)) return 'video';
+			if (docExts.includes(ext)) return 'document';
+			return 'other';
+		}
+		
+		for (const stat of fileStats) {
+			const size = Number(stat.totalSize);
+			const mime = stat.mimeType || '';
+			
+			let category = 'other';
+			
+			if (mime.startsWith('image/')) {
+				category = 'image';
+			} else if (mime.startsWith('video/')) {
+				category = 'video';
+			} else if (
+				mime.startsWith('application/pdf') ||
+				mime.includes('document') ||
+				mime.includes('text') ||
+				mime === 'text/plain'
+			) {
+				category = 'document';
+			} else if (!mime || mime === 'application/octet-stream') {
+				// Fall back to filename-based detection if MIME type is missing or generic
+				category = getCategoryFromFilename(stat.originalFilename);
+			}
+			
+			switch (category) {
+				case 'image':
+					imageBytes += size;
+					break;
+				case 'video':
+					videoBytes += size;
+					break;
+				case 'document':
+					documentBytes += size;
+					break;
+				default:
+					otherBytes += size;
+			}
+		}
+		
+		return c.json({
+			usedBytes,
+			quotaBytes: STORAGE_QUOTA,
+			usedPercentage: (usedBytes / STORAGE_QUOTA) * 100,
+			breakdown: {
+				images: imageBytes,
+				videos: videoBytes,
+				documents: documentBytes,
+				others: otherBytes,
+			},
+		});
+	} catch (error) {
+		console.error("Storage usage error:", error);
+		return c.json({ error: "Failed to get storage usage" }, 500);
+	}
+});
+
+
 // POST /api/files/upload/init - Initialize file upload and get presigned URL
 app.post("/upload/init", async (c) => {
 	try {
@@ -131,6 +227,35 @@ app.post("/upload/init", async (c) => {
 		const userId = (c as any).get("userId") as string;
 		
 		console.log("👤 User ID:", userId);
+		
+		// Check storage quota (1GB = 1,073,741,824 bytes)
+		const STORAGE_QUOTA = 1_073_741_824; // 1GB in bytes
+		
+		// Calculate current storage usage
+		const storageResult = await db
+			.select({ totalSize: sql<number>`COALESCE(SUM(${file.fileSize}), 0)` })
+			.from(file)
+			.where(
+				and(
+					eq(file.userId, userId),
+					sql`${file}.deleted_at IS NULL` // Don't count deleted files
+				)
+			);
+		
+		const currentUsage = Number(storageResult[0]?.totalSize || 0);
+		const requestedSize = body.fileSize;
+		
+		console.log(`📊 Storage check: ${currentUsage} / ${STORAGE_QUOTA} bytes (requesting ${requestedSize})`);
+		
+		if (currentUsage + requestedSize > STORAGE_QUOTA) {
+			const usedMB = (currentUsage / (1024 * 1024)).toFixed(2);
+			const quotaMB = (STORAGE_QUOTA / (1024 * 1024)).toFixed(2);
+			return c.json({ 
+				error: `Storage quota exceeded. You are using ${usedMB} MB of ${quotaMB} MB. This file would exceed your limit.`,
+				storageUsed: currentUsage,
+				storageQuota: STORAGE_QUOTA,
+			}, 400);
+		}
 		
 		// Generate unique file ID and S3 key
 		const fileId = uuidv4();
@@ -145,11 +270,13 @@ app.post("/upload/init", async (c) => {
 			ContentType: "application/octet-stream", // Always encrypted binary
 		});
 		
-		const presignedUrl = await getSignedUrl(s3Client, command, {
+		// Use s3Presigner to generate URL with correct public hostname
+		const presignedUrl = await getSignedUrl(s3Presigner, command, {
 			expiresIn: 900, // 15 minutes
 		});
 		
 		console.log("✅ Presigned URL generated successfully");
+		console.log("🔗 Public URL:", presignedUrl);
 		
 		return c.json({
 			fileId,
@@ -245,10 +372,13 @@ app.get("/", async (c) => {
 				tags: file.tags,
 				folderId: file.folderId,
 				wrappedDek: fileKey.wrappedDek,
-				isOwner: eq(file.userId, userId),
+				isOwner: sql<boolean>`${file.userId} = ${userId}`,
+				ownerName: user.name,
+				ownerEmail: user.email,
 			})
 			.from(fileKey)
 			.innerJoin(file, eq(fileKey.fileId, file.id))
+			.innerJoin(user, eq(file.userId, user.id))
 			.where(
 				and(
 					eq(fileKey.recipientUserId, userId),
@@ -397,21 +527,59 @@ app.post("/:fileId/restore", async (c) => {
 			return c.json({ error: "File not found in trash" }, 404);
 		}
 		
-		// Restore file: clear deletion fields
-		await db.execute(
-			sql`UPDATE file 
-				SET deleted_at = NULL, 
-					deleted_by = NULL, 
-					scheduled_deletion_at = NULL, 
-					updated_at = NOW() 
-				WHERE id = ${fileId}`
-		);
+		// Check if the file was in a folder and if that folder still exists
+		let shouldClearFolderId = false;
+		if (fileRecord.folderId) {
+			const { folder } = await import("@krypt-vault/db");
+			const [folderRecord] = await db
+				.select({
+					id: folder.id,
+					deletedAt: sql<Date | null>`${folder}.deleted_at`,
+				})
+				.from(folder)
+				.where(eq(folder.id, fileRecord.folderId))
+				.limit(1);
+			
+			// Only clear folderId if folder doesn't exist at all
+			// If folder is just in trash, keep the association so it can be restored later
+			if (!folderRecord) {
+				shouldClearFolderId = true;
+				console.log(`⚠️ File's folder doesn't exist, removing folder association`);
+			} else if (folderRecord.deletedAt) {
+				console.log(`📁 File's folder is in trash, keeping association for potential folder restore`);
+			}
+		}
+		
+		// Restore file: clear deletion fields and optionally clear folderId
+		if (shouldClearFolderId) {
+			await db.execute(
+				sql`UPDATE file 
+					SET deleted_at = NULL, 
+						deleted_by = NULL, 
+						scheduled_deletion_at = NULL,
+						folder_id = NULL,
+						updated_at = NOW() 
+					WHERE id = ${fileId}`
+			);
+		} else {
+			await db.execute(
+				sql`UPDATE file 
+					SET deleted_at = NULL, 
+						deleted_by = NULL, 
+						scheduled_deletion_at = NULL, 
+						updated_at = NOW() 
+					WHERE id = ${fileId}`
+			);
+		}
 		
 		console.log(`✅ File ${fileId} restored from trash`);
 		
 		return c.json({ 
 			success: true,
-			message: "File restored successfully",
+			message: shouldClearFolderId 
+				? "File restored successfully (original folder no longer exists)" 
+				: "File restored successfully",
+			folderCleared: shouldClearFolderId,
 		});
 	} catch (error) {
 		console.error("Restore file error:", error);
@@ -533,7 +701,8 @@ app.post("/:fileId/download", async (c) => {
 			Key: fileRecord.s3Key,
 		});
 		
-		const presignedUrl = await getSignedUrl(s3Client, command, {
+		// Use s3Presigner to generate URL with correct public hostname
+		const presignedUrl = await getSignedUrl(s3Presigner, command, {
 			expiresIn: 900, // 15 minutes
 		});
 		
@@ -567,13 +736,15 @@ app.delete("/:fileId", async (c) => {
 		}
 		
 		// Get user's trash retention settings
-		const [settings] = await db
-			.select()
-			.from(userSettings)
-			.where(eq(userSettings.userId, userId))
-			.limit(1);
+		// TODO: Re-enable when userSettings table migration is run
+		// const [settings] = await db
+		// 	.select()
+		// 	.from(userSettings)
+		// 	.where(eq(userSettings.userId, userId))
+		// 	.limit(1);
 		
-		const retentionDays = settings?.trashRetentionDays ?? 30;
+		// Default to 30 days retention
+		const retentionDays = 30; // settings?.trashRetentionDays ?? 30;
 		
 		// Calculate scheduled deletion date
 		let scheduledDeletion: Date | null = null;

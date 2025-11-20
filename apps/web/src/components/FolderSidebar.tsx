@@ -21,10 +21,12 @@ interface FolderSidebarProps {
   onDelete?: () => void;
   onShare?: () => void;
   onDownload?: () => void;
+  ownerName?: string;
   showShareButton?: boolean;
   showDeleteButton?: boolean;
   showDownloadButton?: boolean;
   showOpenButton?: boolean;
+  sharedByMe?: boolean; // New prop to indicate this is shown in "Shared By Me" section
 }
 
 export function FolderSidebar({
@@ -34,10 +36,12 @@ export function FolderSidebar({
   onDelete,
   onShare,
   onDownload,
+  ownerName,
   showShareButton = true,
   showDeleteButton = true,
   showDownloadButton = true,
   showOpenButton = true,
+  sharedByMe = false,
 }: FolderSidebarProps) {
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false);
 
@@ -99,10 +103,10 @@ export function FolderSidebar({
           <div>
             <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400 mb-1">
               <User className="h-4 w-4" />
-              <span>Owner</span>
+              <span>{sharedByMe ? "Shared With" : "Owner"}</span>
             </div>
             <p className="text-lg font-medium text-neutral-900 dark:text-white">
-              {folder.ownerName}
+              {ownerName || folder.ownerName}
             </p>
           </div>
         </div>

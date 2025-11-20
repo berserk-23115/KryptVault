@@ -17,7 +17,7 @@ import { Route as DashboardTrashBinRouteImport } from './routes/dashboard/trash-
 import { Route as DashboardTempRouteImport } from './routes/dashboard/temp'
 import { Route as DashboardSharedRouteImport } from './routes/dashboard/shared'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
-import { Route as DashboardRequestsRouteImport } from './routes/dashboard/requests'
+import { Route as DashboardSearchRouteImport } from './routes/dashboard/search'
 import { Route as DashboardMyFilesRouteImport } from './routes/dashboard/my-files'
 import { Route as DashboardHelpGuideRouteImport } from './routes/dashboard/help-guide'
 import { Route as DashboardFoldersFolderIdRouteImport } from './routes/dashboard/folders/$folderId'
@@ -62,9 +62,9 @@ const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardRequestsRoute = DashboardRequestsRouteImport.update({
-  id: '/requests',
-  path: '/requests',
+const DashboardSearchRoute = DashboardSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardMyFilesRoute = DashboardMyFilesRouteImport.update({
@@ -90,7 +90,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/dashboard/help-guide': typeof DashboardHelpGuideRoute
   '/dashboard/my-files': typeof DashboardMyFilesRoute
-  '/dashboard/requests': typeof DashboardRequestsRoute
+  '/dashboard/search': typeof DashboardSearchRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/shared': typeof DashboardSharedRoute
   '/dashboard/temp': typeof DashboardTempRoute
@@ -103,7 +103,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/dashboard/help-guide': typeof DashboardHelpGuideRoute
   '/dashboard/my-files': typeof DashboardMyFilesRoute
-  '/dashboard/requests': typeof DashboardRequestsRoute
+  '/dashboard/search': typeof DashboardSearchRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/shared': typeof DashboardSharedRoute
   '/dashboard/temp': typeof DashboardTempRoute
@@ -118,7 +118,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/dashboard/help-guide': typeof DashboardHelpGuideRoute
   '/dashboard/my-files': typeof DashboardMyFilesRoute
-  '/dashboard/requests': typeof DashboardRequestsRoute
+  '/dashboard/search': typeof DashboardSearchRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/shared': typeof DashboardSharedRoute
   '/dashboard/temp': typeof DashboardTempRoute
@@ -134,7 +134,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/help-guide'
     | '/dashboard/my-files'
-    | '/dashboard/requests'
+    | '/dashboard/search'
     | '/dashboard/settings'
     | '/dashboard/shared'
     | '/dashboard/temp'
@@ -147,7 +147,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/help-guide'
     | '/dashboard/my-files'
-    | '/dashboard/requests'
+    | '/dashboard/search'
     | '/dashboard/settings'
     | '/dashboard/shared'
     | '/dashboard/temp'
@@ -161,7 +161,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/dashboard/help-guide'
     | '/dashboard/my-files'
-    | '/dashboard/requests'
+    | '/dashboard/search'
     | '/dashboard/settings'
     | '/dashboard/shared'
     | '/dashboard/temp'
@@ -234,11 +234,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardSettingsRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/requests': {
-      id: '/dashboard/requests'
-      path: '/requests'
-      fullPath: '/dashboard/requests'
-      preLoaderRoute: typeof DashboardRequestsRouteImport
+    '/dashboard/search': {
+      id: '/dashboard/search'
+      path: '/search'
+      fullPath: '/dashboard/search'
+      preLoaderRoute: typeof DashboardSearchRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/my-files': {
@@ -268,7 +268,7 @@ declare module '@tanstack/react-router' {
 interface DashboardRouteRouteChildren {
   DashboardHelpGuideRoute: typeof DashboardHelpGuideRoute
   DashboardMyFilesRoute: typeof DashboardMyFilesRoute
-  DashboardRequestsRoute: typeof DashboardRequestsRoute
+  DashboardSearchRoute: typeof DashboardSearchRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardSharedRoute: typeof DashboardSharedRoute
   DashboardTempRoute: typeof DashboardTempRoute
@@ -280,7 +280,7 @@ interface DashboardRouteRouteChildren {
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardHelpGuideRoute: DashboardHelpGuideRoute,
   DashboardMyFilesRoute: DashboardMyFilesRoute,
-  DashboardRequestsRoute: DashboardRequestsRoute,
+  DashboardSearchRoute: DashboardSearchRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardSharedRoute: DashboardSharedRoute,
   DashboardTempRoute: DashboardTempRoute,

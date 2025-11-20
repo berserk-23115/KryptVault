@@ -17,6 +17,8 @@ export interface FileMetadata {
   tags?: string[];
   folderId?: string;
   isOwner?: boolean; // Whether current user owns the file
+  ownerName?: string; // Name of the file owner
+  ownerEmail?: string; // Email of the file owner
   deletedAt?: Date; // When file was moved to trash
   deletedBy?: string; // Who deleted it
   scheduledDeletionAt?: Date; // When to permanently delete
@@ -48,6 +50,19 @@ export interface DownloadResponse {
   originalFilename: string;
   mimeType?: string;
 }
+
+export interface StorageUsage {
+  usedBytes: number;
+  quotaBytes: number;
+  usedPercentage: number;
+  breakdown: {
+    images: number;
+    videos: number;
+    documents: number;
+    others: number;
+  };
+}
+
 
 class FilesApiClient {
   private baseUrl: string;
@@ -193,6 +208,13 @@ class FilesApiClient {
     await this.request(`/${fileId}/permanent`, {
       method: "DELETE",
     });
+  }
+
+  /**
+   * Get storage usage statistics
+   */
+  async getStorageUsage(): Promise<StorageUsage> {
+    return this.request<StorageUsage>("/storage-usage");
   }
 }
 

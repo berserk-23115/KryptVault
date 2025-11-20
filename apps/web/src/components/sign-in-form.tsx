@@ -3,12 +3,24 @@ import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
+import { useState } from "react";
 import Loader from "./loader";
+import ForgotPasswordForm from "./forgot-password-form";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Checkbox } from "./ui/checkbox";
-import { Badge, Fingerprint } from "lucide-react";
+import { Eye, EyeOff, Fingerprint, X } from "lucide-react";
+
+// Function to extract error message
+const getErrorMessage = (error: unknown): string => {
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as any).message);
+  }
+  return typeof error === "object" ? JSON.stringify(error) : String(error);
+};
 
 export default function SignInForm({
   onSwitchToSignUp,
@@ -19,21 +31,31 @@ export default function SignInForm({
     from: "/",
   });
   const { isPending } = authClient.useSession();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const form = useForm({
     defaultValues: {
       email: "",
       password: "",
-	  remember: false,
+      remember: false,
+    },
+    validators: {
+      onSubmit: z.object({
+        email: z.string().email("Invalid email address"),
+        password: z.string().min(1, "Password is required"),
+        remember: z.boolean(),
+      }),
     },
     onSubmit: async ({ value }) => {
       console.log("🔐 Attempting sign in with:", { email: value.email });
-      
+
       try {
         await authClient.signIn.email(
           {
             email: value.email,
             password: value.password,
+            rememberMe: value.remember,
           },
           {
             onSuccess: () => {
@@ -45,19 +67,32 @@ export default function SignInForm({
             },
             onError: (error) => {
               console.error("❌ Sign in error:", error);
-              toast.error(error.error.message || error.error.statusText || "Sign in failed");
+              toast.error(
+                error.error.message ||
+                  error.error.statusText ||
+                  "Sign in failed"
+              );
             },
           }
         );
       } catch (error) {
         console.error("❌ Sign in exception:", error);
-        toast.error("Failed to sign in. Please check if the server is running.");
+        // toast.error(
+        //   "Failed to sign in. Please check if the server is running."
+        // );
       }
     },
   });
 
   if (isPending) {
     return <Loader />;
+  }
+
+  // Show forgot password form
+  if (showForgotPassword) {
+    return (
+      <ForgotPasswordForm onBackToSignIn={() => setShowForgotPassword(false)} />
+    );
   }
 
   // Show regular sign-in form
@@ -122,7 +157,9 @@ export default function SignInForm({
               />
               {field.state.meta.errors.length > 0 && (
                 <p className="text-red-500 dark:text-red-400 text-sm mt-1">
-                  {String(field.state.meta.errors[0])}
+                  {field.state.meta.errors
+                    .map((error) => getErrorMessage(error))
+                    .join(", ")}
                 </p>
               )}
             </div>
@@ -133,56 +170,56 @@ export default function SignInForm({
         <form.Field name="password">
           {(field) => (
             <div>
-              <Label
-                htmlFor={field.name}
-                className="text-sm font-medium mb-1.5 block"
-              >
-                Password
-              </Label>
-              <Input
-                id={field.name}
-                name={field.name}
-                type="password"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-                className="h-11 rounded-lg text-base px-3.5"
-                placeholder="••••••••"
-              />
+              <div className="flex items-center justify-between mb-1.5">
+                <Label
+                  htmlFor={field.name}
+                  className="text-sm font-medium mb-1.5 block"
+                >
+                  Password
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium"
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <div className="relative">
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  type={showPassword ? "text" : "password"}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  className="h-11 rounded-lg text-base px-3.5 pr-10"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
               {field.state.meta.errors.length > 0 && (
-                <p className="text-red-500 dark:text-red-400 text-sm mt-1">
-                  {String(field.state.meta.errors[0])}
+                <p className="text-red-500 dark:text-red-400 text-sm mt-2">
+                  {field.state.meta.errors
+                    .map((error) => getErrorMessage(error))
+                    .join(", ")}
                 </p>
               )}
             </div>
           )}
         </form.Field>
 
-        {/* Remember me + Forgot password */}
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="remember"
-              className=""
-              onCheckedChange={(checked) =>
-                form.setFieldValue("remember", checked === true)
-              }
-            />
-            <Label
-              htmlFor="remember"
-              className="text-gray-700 dark:text-gray-300 cursor-pointer"
-            >
-              Remember me
-            </Label>
-          </div>
-          <button
-            type="button"
-            onClick={() => toast.info("Forgot password clicked")}
-            className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium"
-          >
-            Forgot password?
-          </button>
-        </div>
+      
 
         {/* Sign In button */}
         <form.Subscribe>
@@ -199,27 +236,15 @@ export default function SignInForm({
           )}
         </form.Subscribe>
 
-        {/* Divider */}
-        <div className="flex items-center my-4">
-          <div className="grow border-t border-gray-300 dark:border-gray-700"></div>
-          <span className="mx-3 text-gray-500 dark:text-gray-400 text-xs">
-            or Sign In with
-          </span>
-          <div className="grow border-t border-gray-300 dark:border-gray-700"></div>
-        </div>
-
-        {/* Sign in with Passkey */}
-        <div className="relative w-full">
-          <Button
-            type="button"
-            onClick={() => toast.info("Passkey sign-in coming soon!")}
-            variant={"outline"}
-            className="h-11 w-full text-sm font-semibold rounded-lg"
-          >
-            <Fingerprint className="w-4 h-4" />
-            Passkey
-          </Button>
-        </div>
+        {/* Cancel Button */}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => navigate({ to: "/" })}
+          className="h-11 w-full text-base font-semibold rounded-lg transition"
+        >
+          Cancel
+        </Button>
       </form>
     </div>
   );

@@ -29,6 +29,7 @@ interface ShareFileDialogProps {
   fileId: string;
   fileName: string;
   wrappedDek: string;
+  currentUserId?: string; // Current logged-in user's ID
   onShareComplete?: () => void;
 }
 
@@ -54,6 +55,7 @@ export function ShareFileDialog({
   fileId,
   fileName,
   wrappedDek,
+  currentUserId,
   onShareComplete,
 }: ShareFileDialogProps) {
   const [email, setEmail] = React.useState("");
@@ -80,7 +82,16 @@ export function ShareFileDialog({
     try {
       setLoadingAccess(true);
       const list = await getFileAccessList(fileId);
-      setAccessList(list);
+      
+      // Filter out the owner from the sharedWith list
+      const filteredSharedWith = list.sharedWith.filter(
+        user => user.userId !== list.owner?.userId
+      );
+      
+      setAccessList({
+        owner: list.owner,
+        sharedWith: filteredSharedWith,
+      });
     } catch (error) {
       console.error("Failed to load access list:", error);
       toast.error("Failed to load access list");

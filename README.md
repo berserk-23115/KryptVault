@@ -35,6 +35,50 @@ This project uses PostgreSQL with Drizzle ORM.
 pnpm run db:push
 ```
 
+## S3/MinIO Configuration
+
+This project uses S3-compatible storage (MinIO) for file storage with a **dual-client architecture** to properly handle presigned URLs in production.
+
+### Architecture
+
+The server uses **two separate S3 clients**:
+
+1. **`s3Client`** - Uses internal Docker endpoint (`http://minio:9000`)
+   - Used for server-side operations (delete, list, etc.)
+   - Communicates directly with MinIO container
+
+2. **`s3Presigner`** - Uses public endpoint (`https://s3.ayushk.me`)
+   - Used ONLY for generating presigned URLs
+   - Ensures cryptographic signatures match the public hostname
+   - Prevents "SignatureDoesNotMatch" errors
+
+### Environment Variables
+
+In your `apps/server/.env` file, configure:
+
+```bash
+# Internal S3 endpoint (used by server to communicate with MinIO)
+AWS_S3_ENDPOINT=http://minio:9000  # For Docker, or http://localhost:9200 for local dev
+
+# Public S3 endpoint (used in presigned URLs for client access)
+PUBLIC_S3_ENDPOINT=https://s3.ayushk.me  # Your public S3/MinIO URL
+```
+
+**Important for Production:**
+- `AWS_S3_ENDPOINT`: Internal Docker service name or internal network address
+- `PUBLIC_S3_ENDPOINT`: **Must** be the publicly accessible URL that browsers/clients can reach
+- The presigner client uses `PUBLIC_S3_ENDPOINT` to generate cryptographically valid URLs
+
+### CORS Configuration
+
+The MinIO service is configured with CORS to allow cross-origin requests:
+
+```yaml
+MINIO_API_CORS_ALLOW_ORIGIN: "*"
+```
+
+For production, replace `"*"` with your specific domains (e.g., `"https://your-app.com,https://tauri.localhost"`).
+
 
 Then, run the development server:
 

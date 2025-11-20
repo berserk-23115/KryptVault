@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db, file, fileKey, user, userKeypair } from "@krypt-vault/db";
-import { eq, and } from "@krypt-vault/db";
+import { eq, and, sql } from "@krypt-vault/db";
 import { z } from "zod";
 import { auth } from "@krypt-vault/auth";
 
@@ -253,11 +253,20 @@ app.get("/shared-with-me", async (c) => {
 				sharedBy: user.name,
 				sharedByEmail: user.email,
 				sharedAt: fileKey.createdAt,
+				sharedById: fileKey.sharedBy,
 			})
 			.from(fileKey)
 			.innerJoin(file, eq(fileKey.fileId, file.id))
 			.innerJoin(user, eq(fileKey.sharedBy, user.id))
-			.where(eq(fileKey.recipientUserId, userId));
+			.where(
+				and(
+					eq(fileKey.recipientUserId, userId),
+					// Exclude files where the user shared with themselves
+					sql`${fileKey.sharedBy} != ${userId}`,
+					// Only show non-deleted files
+					sql`${file}.deleted_at IS NULL`
+				)
+			);
 		
 		return c.json({ files: sharedFiles });
 	} catch (error) {
@@ -285,7 +294,12 @@ app.get("/shared-by-me", async (c) => {
 			.innerJoin(user, eq(fileKey.recipientUserId, user.id))
 			.where(eq(fileKey.sharedBy, userId));
 		
-		return c.json({ shares: sharedFiles });
+		// Filter out shares where the user shared with themselves
+		const filteredShares = sharedFiles.filter(
+			share => share.recipientUserId !== userId
+		);
+		
+		return c.json({ shares: filteredShares });
 	} catch (error) {
 		console.error("List shared by me error:", error);
 		return c.json({ error: "Failed to list shares" }, 500);
