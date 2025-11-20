@@ -211,10 +211,13 @@ app.get("/:folderId", async (c) => {
 				description: folder.description,
 				parentFolderId: folder.parentFolderId,
 				ownerId: folder.ownerId,
+				ownerName: user.name,
+				ownerEmail: user.email,
 				wrappedFolderKey: folderKey.wrappedFolderKey,
 			})
 			.from(folderKey)
 			.innerJoin(folder, eq(folderKey.folderId, folder.id))
+			.innerJoin(user, eq(folder.ownerId, user.id))
 			.where(
 				and(
 					eq(folderKey.folderId, folderId),

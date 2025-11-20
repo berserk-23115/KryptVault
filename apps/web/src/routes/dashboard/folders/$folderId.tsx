@@ -494,7 +494,7 @@ function RouteComponent() {
           onDownload={() => handleDownload(selectedFile)}
           onDelete={() => {}}
           onShare={() => {}}
-          ownerName={folderDetails?.folder.ownerId || "Unknown"}
+          ownerName={folderDetails?.folder.ownerName || folderDetails?.folder.ownerEmail || "Unknown"}
           showShareButton={false}
           isSharedFile={false}
         />

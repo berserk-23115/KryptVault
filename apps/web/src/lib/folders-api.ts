@@ -83,6 +83,8 @@ export interface FolderDetails {
     description: string | null;
     parentFolderId: string | null;
     ownerId: string;
+    ownerName: string;
+    ownerEmail: string;
     wrappedFolderKey: string;
   };
   files: FolderFile[];
