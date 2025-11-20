@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { db, file, fileKey, user, userKeypair } from "@krypt-vault/db";
-import { eq, and } from "@krypt-vault/db";
+import { eq, and, sql } from "@krypt-vault/db";
 import { z } from "zod";
 import { auth } from "@krypt-vault/auth";
 
@@ -258,14 +258,17 @@ app.get("/shared-with-me", async (c) => {
 			.from(fileKey)
 			.innerJoin(file, eq(fileKey.fileId, file.id))
 			.innerJoin(user, eq(fileKey.sharedBy, user.id))
-			.where(eq(fileKey.recipientUserId, userId));
+			.where(
+				and(
+					eq(fileKey.recipientUserId, userId),
+					// Exclude files where the user shared with themselves
+					sql`${fileKey.sharedBy} != ${userId}`,
+					// Only show non-deleted files
+					sql`${file}.deleted_at IS NULL`
+				)
+			);
 		
-		// Filter out files where the user shared with themselves
-		const filteredFiles = sharedFiles.filter(
-			file => file.sharedById !== userId
-		);
-		
-		return c.json({ files: filteredFiles });
+		return c.json({ files: sharedFiles });
 	} catch (error) {
 		console.error("List shared files error:", error);
 		return c.json({ error: "Failed to list shared files" }, 500);
