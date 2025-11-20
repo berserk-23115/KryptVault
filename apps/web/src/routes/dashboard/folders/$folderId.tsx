@@ -69,6 +69,9 @@ function RouteComponent() {
       const details = await getFolderDetails(folderId);
       setFolderDetails(details);
       
+      console.log("Folder details loaded:", details.folder.name);
+      console.log("Wrapped folder key present:", !!details.folder.wrappedFolderKey);
+      
       // Unwrap and store folder key in localStorage for file downloads
       const userKeysStr = localStorage.getItem("userKeypair");
       if (userKeysStr && details.folder.wrappedFolderKey) {
@@ -78,6 +81,7 @@ function RouteComponent() {
           const userPrivateKey = userKeys.x25519PrivateKey || userKeys.x25519_private_key;
           
           if (userPublicKey && userPrivateKey) {
+            console.log("Unwrapping folder key...");
             // Unwrap the folder key
             const folderKey = await unwrapSharedDek(
               details.folder.wrappedFolderKey,
@@ -87,10 +91,19 @@ function RouteComponent() {
             
             // Store the unwrapped folder key
             localStorage.setItem(`folderKey_${folderId}`, folderKey);
+            console.log("Folder key stored successfully");
+          } else {
+            console.error("User keypair incomplete");
+            setError("Encryption keys not properly set up. Please check your keypair.");
           }
         } catch (keyErr) {
           console.error("Failed to unwrap folder key:", keyErr);
-          // Don't fail the entire load if folder key unwrapping fails
+          setError("Failed to decrypt folder key. You may not have access to this folder.");
+        }
+      } else {
+        console.warn("No wrapped folder key or user keypair found");
+        if (!details.folder.wrappedFolderKey) {
+          setError("Folder encryption key not found. This folder may not be properly configured.");
         }
       }
     } catch (err) {
@@ -121,62 +134,151 @@ function RouteComponent() {
 
       // Show initial toast
       toastId = toast.loading(`Downloading ${file.originalFilename}...`, {
-        description: "Fetching download URL...",
-      });
-
-      // Get folder key from localStorage
-      const folderKeyStr = localStorage.getItem(`folderKey_${folderId}`);
-      if (!folderKeyStr) {
-        throw new Error("Folder key not found. Please reload the folder.");
-      }
-
-      // Unwrap the DEK using folder key (symmetric encryption)
-      toast.loading(`Downloading ${file.originalFilename}...`, {
-        id: toastId,
-        description: "Unwrapping encryption key...",
-      });
-
-      const dekBase64 = await unwrapDekWithFolderKey({
-        wrapped_dek: file.wrappedDek,
-        wrapping_nonce: file.wrappingNonce,
-        folder_key_b64: folderKeyStr,
+        description: "Preparing download...",
       });
 
       // Get download URL for the file from S3
-      toast.loading(`Downloading ${file.originalFilename}...`, {
-        id: toastId,
-        description: "Getting download URL...",
-      });
-
-      // Generate presigned URL from S3 key
       const API_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
       const token = localStorage.getItem("bearer_token");
       
-      const response = await fetch(`${API_URL}/api/files/${file.fileId}/download-url`, {
+      const response = await fetch(`${API_URL}/api/files/${file.fileId}/download`, {
+        method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         credentials: "include",
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get download URL");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to get download URL");
       }
 
-      const { downloadUrl } = await response.json();
+      const downloadData = await response.json();
 
-      // Download and decrypt using the unwrapped DEK
-      toast.loading(`Downloading ${file.originalFilename}...`, {
-        id: toastId,
-        description: "Downloading and decrypting file...",
-      });
+      // Check if we got wrappingNonce - this means it's a folder file
+      if (downloadData.wrappingNonce) {
+        // This is a folder file, need to unwrap DEK with folder key
+        toast.loading(`Downloading ${file.originalFilename}...`, {
+          id: toastId,
+          description: "Unwrapping encryption key...",
+        });
 
-      await downloadAndDecryptSharedFile(
-        downloadUrl,
-        dekBase64,
-        file.nonce,
-        savePath
-      );
+        // Get folder key from localStorage
+        const folderKeyStr = localStorage.getItem(`folderKey_${folderId}`);
+        if (!folderKeyStr) {
+          // Try to unwrap the folder key again
+          const userKeysStr = localStorage.getItem("userKeypair");
+          if (!userKeysStr || !folderDetails) {
+            throw new Error("Folder key not found. Please reload the page and try again.");
+          }
+
+          try {
+            const userKeys = JSON.parse(userKeysStr);
+            const userPublicKey = userKeys.x25519PublicKey || userKeys.x25519_public_key;
+            const userPrivateKey = userKeys.x25519PrivateKey || userKeys.x25519_private_key;
+
+            if (!userPublicKey || !userPrivateKey) {
+              throw new Error("Encryption keys not properly configured.");
+            }
+
+            const folderKeyUnwrapped = await unwrapSharedDek(
+              folderDetails.folder.wrappedFolderKey,
+              userPublicKey,
+              userPrivateKey
+            );
+
+            localStorage.setItem(`folderKey_${folderId}`, folderKeyUnwrapped);
+            
+            const dekBase64 = await unwrapDekWithFolderKey({
+              wrapped_dek: downloadData.wrappedDek,
+              wrapping_nonce: downloadData.wrappingNonce,
+              folder_key_b64: folderKeyUnwrapped,
+            });
+
+            // Download and decrypt using the unwrapped DEK
+            toast.loading(`Downloading ${file.originalFilename}...`, {
+              id: toastId,
+              description: "Downloading and decrypting file...",
+            });
+
+            await downloadAndDecryptSharedFile(
+              downloadData.downloadUrl,
+              dekBase64,
+              downloadData.nonce,
+              savePath
+            );
+            
+            toast.success(`Download complete!`, {
+              id: toastId,
+              description: `Saved to: ${savePath}`,
+            });
+            return;
+          } catch (unwrapError) {
+            console.error("Failed to unwrap folder key during download:", unwrapError);
+            throw new Error("Cannot access folder encryption key. This folder may have been shared with a different keypair. Please try regenerating your encryption keys.");
+          }
+        }
+
+        const dekBase64 = await unwrapDekWithFolderKey({
+          wrapped_dek: downloadData.wrappedDek,
+          wrapping_nonce: downloadData.wrappingNonce,
+          folder_key_b64: folderKeyStr,
+        });
+
+        // Download and decrypt using the unwrapped DEK
+        toast.loading(`Downloading ${file.originalFilename}...`, {
+          id: toastId,
+          description: "Downloading and decrypting file...",
+        });
+
+        await downloadAndDecryptSharedFile(
+          downloadData.downloadUrl,
+          dekBase64,
+          downloadData.nonce,
+          savePath
+        );
+      } else {
+        // This is a regular shared file or owner's file
+        toast.loading(`Downloading ${file.originalFilename}...`, {
+          id: toastId,
+          description: "Unwrapping encryption key...",
+        });
+
+        const userKeysStr = localStorage.getItem("userKeypair");
+        if (!userKeysStr) {
+          throw new Error("Encryption keys not found. Please set up your keypair first.");
+        }
+
+        const userKeys = JSON.parse(userKeysStr);
+        const userPublicKey = userKeys.x25519PublicKey || userKeys.x25519_public_key;
+        const userPrivateKey = userKeys.x25519PrivateKey || userKeys.x25519_private_key;
+
+        if (!userPublicKey || !userPrivateKey) {
+          throw new Error("Invalid keypair data. Please regenerate your encryption keys.");
+        }
+
+        // Unwrap the DEK using user's keypair
+        const dekBase64 = await unwrapSharedDek(
+          downloadData.wrappedDek,
+          userPublicKey,
+          userPrivateKey
+        );
+
+        // Download and decrypt
+        toast.loading(`Downloading ${file.originalFilename}...`, {
+          id: toastId,
+          description: "Downloading and decrypting file...",
+        });
+
+        await downloadAndDecryptSharedFile(
+          downloadData.downloadUrl,
+          dekBase64,
+          downloadData.nonce,
+          savePath
+        );
+      }
 
       // Success
       toast.success(`Download complete!`, {

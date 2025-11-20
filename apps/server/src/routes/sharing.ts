@@ -292,14 +292,46 @@ app.get("/shared-by-me", async (c) => {
 			.from(fileKey)
 			.innerJoin(file, eq(fileKey.fileId, file.id))
 			.innerJoin(user, eq(fileKey.recipientUserId, user.id))
-			.where(eq(fileKey.sharedBy, userId));
+			.where(
+				and(
+					eq(fileKey.sharedBy, userId),
+					sql`${fileKey.recipientUserId} != ${userId}` // Exclude self-shares
+				)
+			);
 		
-		// Filter out shares where the user shared with themselves
-		const filteredShares = sharedFiles.filter(
-			share => share.recipientUserId !== userId
-		);
+		// Group by file and collect recipients
+		const fileMap = new Map<string, {
+			fileId: string;
+			originalFilename: string;
+			recipients: Array<{
+				userId: string;
+				name: string;
+				email: string;
+				sharedAt: Date;
+			}>;
+		}>();
 		
-		return c.json({ shares: filteredShares });
+		for (const share of sharedFiles) {
+			if (!fileMap.has(share.fileId)) {
+				fileMap.set(share.fileId, {
+					fileId: share.fileId,
+					originalFilename: share.originalFilename,
+					recipients: [],
+				});
+			}
+			
+			const fileData = fileMap.get(share.fileId)!;
+			fileData.recipients.push({
+				userId: share.recipientUserId,
+				name: share.recipientName,
+				email: share.recipientEmail,
+				sharedAt: share.sharedAt,
+			});
+		}
+		
+		const groupedFiles = Array.from(fileMap.values());
+		
+		return c.json({ files: groupedFiles });
 	} catch (error) {
 		console.error("List shared by me error:", error);
 		return c.json({ error: "Failed to list shares" }, 500);

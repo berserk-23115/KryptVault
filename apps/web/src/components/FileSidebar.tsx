@@ -34,6 +34,12 @@ interface FileSidebarProps {
   showShareButton?: boolean;
   isSharedFile?: boolean;
   sharedByMe?: boolean; // New prop to indicate this is shown in "Shared By Me" section
+  recipients?: Array<{ // Recipients for files shared by me
+    userId: string;
+    name: string;
+    email: string;
+    sharedAt: Date;
+  }>;
 }
 
 export function FileSidebar({
@@ -47,6 +53,7 @@ export function FileSidebar({
   showShareButton = true,
   isSharedFile = false,
   sharedByMe = false,
+  recipients,
 }: FileSidebarProps) {
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false);
   if (!file) return null;
@@ -112,9 +119,27 @@ export function FileSidebar({
               <UserIcon className="h-4 w-4" />
               <span>{sharedByMe ? "Shared With" : isSharedFile ? "Shared By" : "Owner"}</span>
             </div>
-            <p className="text-lg font-medium text-neutral-900 dark:text-white">
-              {ownerName || "Unknown"}
-            </p>
+            {sharedByMe && recipients && recipients.length > 0 ? (
+              <div className="space-y-2">
+                {recipients.map((recipient) => (
+                  <div key={recipient.userId} className="bg-neutral-100 dark:bg-neutral-900 p-2 rounded">
+                    <p className="text-sm font-medium text-neutral-900 dark:text-white">
+                      {recipient.name}
+                    </p>
+                    <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                      {recipient.email}
+                    </p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
+                      Shared on {new Date(recipient.sharedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-lg font-medium text-neutral-900 dark:text-white">
+                {ownerName || "Unknown"}
+              </p>
+            )}
           </div>
 
           {/* {file.mimeType && (
