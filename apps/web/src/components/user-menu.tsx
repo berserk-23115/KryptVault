@@ -32,8 +32,8 @@ export default function UserMenu() {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="ghost" className="gap-2">
-					<Avatar className="h-6 w-6">
+				<Button variant="ghost" className="gap-2 text-md">
+					<Avatar className="h-9 w-9">
 						<AvatarImage src="/profile.png" alt={session.user?.name || "User"} />
 						<AvatarFallback>{(session.user?.name || session.user?.email || "U").charAt(0).toUpperCase()}</AvatarFallback>
 					</Avatar>

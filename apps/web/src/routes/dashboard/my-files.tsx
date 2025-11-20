@@ -22,6 +22,46 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { ButtonGroup } from "@/components/ui/button-group";
 
+
+import {
+  File as FileIcon,
+  FileImage,
+  FileAudio,
+  FileVideo,
+  FileArchive,
+  FileText,
+  FileCode,
+} from "lucide-react";
+
+function getFileIcon(ext?: string) {
+  if (!ext) return FileIcon;
+
+  const mapping: Record<string, any> = {
+    pdf: FileText,
+    doc: FileText,
+    docx: FileText,
+    txt: FileText,
+    jpg: FileImage,
+    jpeg: FileImage,
+    png: FileImage,
+    gif: FileImage,
+    svg: FileImage,
+    mp3: FileAudio,
+    wav: FileAudio,
+    mp4: FileVideo,
+    mov: FileVideo,
+    avi: FileVideo,
+    zip: FileArchive,
+    rar: FileArchive,
+    "7z": FileArchive,
+    js: FileCode,
+    ts: FileCode,
+    json: FileCode,
+  };
+
+  return mapping[ext] || FileIcon;
+}
+
 export const Route = createFileRoute("/dashboard/my-files")({
   component: RouteComponent,
   beforeLoad: async () => {
@@ -464,30 +504,18 @@ function RouteComponent() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {folders.map((folder) => (
-                <div
+                <FolderCard
                   key={folder.folderId}
+                  folder={folder}
+                  isSelected={selectedFolder?.folderId === folder.folderId}
                   onClick={() => {
-                    setSelectedFile(null); // Clear file selection
+                    setSelectedFile(null);
                     setSelectedFolder(folder);
                   }}
-                  onDoubleClick={() => navigate({ to: `/dashboard/folders/${folder.folderId}` })}
-                  className="bg-neutral-100 dark:bg-neutral-900 rounded-lg p-4 border border-neutral-300 dark:border-neutral-800 hover:border-purple-400 dark:hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-800/50 transition cursor-pointer group"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="w-12 h-12 bg-linear-to-br from-purple-200 to-purple-400 dark:from-purple-600 dark:to-purple-800 rounded flex items-center justify-center">
-                        <FolderOpen className="h-6 w-6 text-purple-800 dark:text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-neutral-900 dark:text-white truncate">{folder.name}</h3>
-                        {/* <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">{folder.ownerName}</p> */}
-                      </div>
-                    </div>
-                    <button className="opacity-0 group-hover:opacity-100 transition">
-                      <MoreVertical className="h-4 w-4 text-neutral-600 dark:text-neutral-400" />
-                    </button>
-                  </div>
-                </div>
+                  onDoubleClick={() =>
+                    navigate({ to: `/dashboard/folders/${folder.folderId}` })
+                  }
+                />
               ))}
             </div>
           )}
@@ -594,37 +622,18 @@ function RouteComponent() {
             // GRID VIEW
             <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
               {files.map((file) => (
-                <div
+                <FileCard
                   key={file.id}
+                  file={file}
+                  isSelected={selectedFile?.id === file.id}
                   onClick={() => {
-                    setSelectedFolder(null); // Clear folder selection
+                    setSelectedFolder(null);
                     setSelectedFile(file);
                   }}
-                  className={`rounded-xl overflow-hidden shadow-md border 
-                  ${selectedFile?.id === file.id ? "border-purple-500 ring-2 ring-purple-500" : "border-neutral-300 dark:border-neutral-700"}
-                  bg-white dark:bg-purple-900/20 
-                  hover:scale-[1.02] hover:shadow-lg transition cursor-pointer`}
-                >
-                  <div className="h-36 w-full bg-linear-to-br from-purple-200 dark:from-purple-500/20 to-blue-200 dark:to-blue-500/20 flex items-center justify-center">
-                    <span className="text-6xl">{getFileIcon(file.originalFilename)}</span>
-                  </div>
-
-                  <div className="p-4">
-                    <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                      {file.originalFilename}
-                    </p>
-                    <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-                      {formatFileSize(file.fileSize)}
-                    </p>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
-                      {new Date(file.createdAt).toLocaleDateString("en-US", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </p>
-                  </div>
-                </div>
+                  onDoubleClick={() =>
+                    navigate({ to: `/dashboard/files/${file.id}` })
+                  }
+                />
               ))}
             </div>
           )}
@@ -689,4 +698,139 @@ function RouteComponent() {
       )}
     </main>
   );
+}
+
+function FileCard({
+  file,
+  onClick,
+  onDoubleClick,
+  isSelected,
+}: {
+  file: FileMetadata;
+  onClick: () => void;
+  onDoubleClick: () => void;
+  isSelected?: boolean;
+}) {
+  const ext = file.originalFilename.split(".").pop()?.toLowerCase();
+  const Icon = getFileIcon(ext);
+
+  return (
+    <div
+      onClick={onClick}
+      onDoubleClick={onDoubleClick}
+      className={`
+        group w-full flex items-center gap-4 rounded-2xl p-4 cursor-pointer
+        backdrop-blur-xl transition-all border
+        bg-white/60 dark:bg-purple-200/10
+        shadow-[0_2px_10px_rgba(0,0,0,0.15)]
+        hover:shadow-[0_4px_22px_rgba(168,85,247,0.35)]
+        hover:scale-[1.01]
+
+        ${isSelected
+          ? "border-purple-500/70 ring-2 ring-purple-400"
+          : "border-white/20 dark:border-white/10"}
+      `}
+    >
+      {/* ICON */}
+      <div className="flex items-center justify-center">
+        <Icon className="w-10 h-10 text-purple-300 group-hover:text-purple-300 transition" />
+      </div>
+
+      {/* FILE TEXT INFO */}
+      <div className="flex flex-col min-w-0">
+        <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+          {file.originalFilename}
+        </p>
+
+        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+          {formatFileSize(file.fileSize)} • {ext?.toUpperCase() || "FILE"}
+        </p>
+
+        <p className="text-xs text-slate-500 dark:text-slate-500">
+          {new Date(file.createdAt).toLocaleDateString()}
+        </p>
+      </div>
+
+      {/* RIGHT-SIDE ARROW*/}
+      <div className="ml-auto opacity-0 group-hover:opacity-100 transition">
+        <svg
+          className="h-4 w-4 text-purple-400"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function FolderCard({
+  folder,
+  onClick,
+  onDoubleClick,
+  isSelected,
+}: {
+  folder: Folder;
+  onClick: () => void;
+  onDoubleClick: () => void;
+  isSelected?: boolean;
+}) {
+  return (
+    <div
+      onClick={onClick}
+      onDoubleClick={onDoubleClick}
+      className={`
+        group w-full flex items-center gap-4 rounded-2xl p-4 cursor-pointer
+        backdrop-blur-xl transition-all border
+        bg-white/60 dark:bg-purple-400/20
+        shadow-[0_2px_10px_rgba(0,0,0,0.15)]
+        hover:shadow-[0_4px_22px_rgba(168,85,247,0.35)]
+        hover:scale-[1.01]
+
+        ${isSelected
+          ? "border-purple-500/70 ring-2 ring-purple-400"
+          : "border-white/20 dark:border-white/10"}
+      `}
+    >
+      {/* ICON */}
+      <div className="flex items-center justify-center">
+        <FolderOpen className="w-10 h-10 text-purple-300 group-hover:text-purple-300 transition" />
+      </div>
+
+      {/* FOLDER INFO */}
+      <div className="flex flex-col min-w-0">
+        <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+          {folder.name}
+        </p>
+
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Folder
+        </p>
+      </div>
+
+      {/* RIGHT-SIDE ARROW */}
+      <div className="ml-auto opacity-0 group-hover:opacity-100 transition">
+        <svg
+          className="h-4 w-4 text-purple-400"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function formatFileSize(bytes: number): string {
+  if (!bytes) return "0 Bytes";
+  const units = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  const size = (bytes / Math.pow(1024, i)).toFixed(2);
+  return `${size} ${units[i]}`;
 }
