@@ -9,6 +9,7 @@ import {
   getSharedByMe,
   type SharedFile,
   type ShareRecord,
+  type SharedByMeFile,
 } from "@/lib/sharing-api";
 import {
   getSharedWithMeFolders,
@@ -24,6 +25,8 @@ import {
 import { save } from "@tauri-apps/plugin-dialog";
 import { FileSidebar } from "@/components/FileSidebar";
 import { FolderSidebar } from "@/components/FolderSidebar";
+import { ShareFileDialog } from "@/components/ShareFileDialog";
+import { ShareFolderDialog } from "@/components/ShareFolderDialog";
 import { filesApi, type FileMetadata } from "@/lib/files-api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -47,8 +50,8 @@ function RouteComponent() {
   const [sharedWithMeFiles, setSharedWithMeFiles] = React.useState<
     SharedFile[]
   >([]);
-  const [sharedByMeRecords, setSharedByMeRecords] = React.useState<
-    ShareRecord[]
+  const [sharedByMeFiles, setSharedByMeFiles] = React.useState<
+    SharedByMeFile[]
   >([]);
   const [sharedWithMeFolders, setSharedWithMeFolders] = React.useState<
     SharedFolder[]
@@ -63,10 +66,16 @@ function RouteComponent() {
   const [selectedFolder, setSelectedFolder] =
     React.useState<SharedFolder | null>(null);
   // State for "Shared By Me" tab selections
-  const [selectedSharedByMeFile, setSelectedSharedByMeFile] = React.useState<ShareRecord | null>(null);
+  const [selectedSharedByMeFile, setSelectedSharedByMeFile] = React.useState<SharedByMeFile | null>(null);
   const [selectedSharedByMeFolder, setSelectedSharedByMeFolder] = React.useState<SharedFolderRecord | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<"grid" | "list">("grid");
+  
+  // Share dialog states
+  const [shareFileDialogOpen, setShareFileDialogOpen] = React.useState(false);
+  const [shareFileData, setShareFileData] = React.useState<{ fileId: string; fileName: string; wrappedDek: string } | null>(null);
+  const [shareFolderDialogOpen, setShareFolderDialogOpen] = React.useState(false);
+  const [shareFolderData, setShareFolderData] = React.useState<{ folderId: string; folderName: string; wrappedFolderKey: string } | null>(null);
 
   const loadSharedFiles = async () => {
     try {
@@ -79,7 +88,7 @@ function RouteComponent() {
 
       // Load shared by me records (backend already filters out self-shares)
       const filesSharedByMe = await getSharedByMe();
-      setSharedByMeRecords(filesSharedByMe);
+      setSharedByMeFiles(filesSharedByMe);
 
       // Load shared folders
       const foldersSharedWithMe = await getSharedWithMeFolders();
@@ -116,8 +125,8 @@ function RouteComponent() {
     setSelectedSharedByMeFolder(null);
   };
 
-  const handleSharedByMeFileClick = (shareRecord: ShareRecord) => {
-    setSelectedSharedByMeFile(shareRecord);
+  const handleSharedByMeFileClick = (file: SharedByMeFile) => {
+    setSelectedSharedByMeFile(file);
     setSelectedFile(null);
     setSelectedFolder(null);
     setSelectedSharedByMeFolder(null);
@@ -393,16 +402,16 @@ function RouteComponent() {
     };
   };
 
-  // Convert ShareRecord to FileMetadata for "Shared By Me" sidebar
-  const convertShareRecordToFileMetadata = (share: ShareRecord): FileMetadata => {
+  // Convert SharedByMeFile to FileMetadata for "Shared By Me" sidebar
+  const convertSharedByMeFileToFileMetadata = (file: SharedByMeFile): FileMetadata => {
     return {
-      id: share.fileId,
-      fileId: share.fileId,
-      originalFilename: share.originalFilename,
+      id: file.fileId,
+      fileId: file.fileId,
+      originalFilename: file.originalFilename,
       mimeType: undefined,
-      fileSize: 0, // Not available in ShareRecord
-      createdAt: share.sharedAt,
-      updatedAt: share.sharedAt,
+      fileSize: 0, // Not available in SharedByMeFile
+      createdAt: file.recipients[0]?.sharedAt || new Date(),
+      updatedAt: file.recipients[0]?.sharedAt || new Date(),
       userId: session.data?.user?.id || "",
       s3Key: "",
       s3Bucket: "",
@@ -705,7 +714,7 @@ function RouteComponent() {
                 <div className="text-center py-12 text-neutral-500">
                   Loading files...
                 </div>
-              ) : sharedByMeRecords.length === 0 &&
+              ) : sharedByMeFiles.length === 0 &&
                 sharedByMeFolderRecords.length === 0 ? (
                 <div className="text-center py-8 text-neutral-500">
                   <Share2Icon className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
@@ -717,7 +726,7 @@ function RouteComponent() {
                     appear here
                   </p>
                 </div>
-              ) : sharedByMeRecords.length === 0 ? (
+              ) : sharedByMeFiles.length === 0 ? (
                 <div className="text-center py-8 text-neutral-500">
                   No files shared by you
                 </div>
@@ -734,18 +743,17 @@ function RouteComponent() {
                           Shared With
                         </th>
                         <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
-                          Date Shared
+                          Recipients
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {sharedByMeRecords.map((share) => (
+                      {sharedByMeFiles.map((file) => (
                         <tr
-                          key={`${share.fileId}-${share.recipientUserId}`}
-                          onClick={() => handleSharedByMeFileClick(share)}
+                          key={file.fileId}
+                          onClick={() => handleSharedByMeFileClick(file)}
                           className={`border-b border-neutral-300 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900/50 transition cursor-pointer ${
-                            selectedSharedByMeFile?.fileId === share.fileId &&
-                            selectedSharedByMeFile?.recipientUserId === share.recipientUserId
+                            selectedSharedByMeFile?.fileId === file.fileId
                               ? "bg-purple-100 dark:bg-purple-600/20"
                               : ""
                           }`}
@@ -753,25 +761,29 @@ function RouteComponent() {
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
                               <span className="text-2xl">
-                                {getFileIcon(share.originalFilename)}
+                                {getFileIcon(file.originalFilename)}
                               </span>
                               <span className="text-neutral-900 dark:text-white">
-                                {share.originalFilename}
+                                {file.originalFilename}
                               </span>
                             </div>
                           </td>
                           <td className="py-4 px-4 text-neutral-600 dark:text-neutral-400">
-                            {share.recipientName} ({share.recipientEmail})
+                            <div className="flex flex-col gap-1">
+                              {file.recipients.slice(0, 2).map((recipient) => (
+                                <div key={recipient.userId}>
+                                  {recipient.name} ({recipient.email})
+                                </div>
+                              ))}
+                              {file.recipients.length > 2 && (
+                                <div className="text-xs text-neutral-500">
+                                  +{file.recipients.length - 2} more
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="py-4 px-4 text-neutral-600 dark:text-neutral-400">
-                            {new Date(share.sharedAt).toLocaleDateString(
-                              "en-US",
-                              {
-                                day: "numeric",
-                                month: "long",
-                                year: "numeric",
-                              }
-                            )}
+                            {file.recipients.length}
                           </td>
                         </tr>
                       ))}
@@ -781,32 +793,31 @@ function RouteComponent() {
               ) : (
                 // GRID VIEW
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                  {sharedByMeRecords.map((share) => (
+                  {sharedByMeFiles.map((file) => (
                     <div
-                      key={`${share.fileId}-${share.recipientUserId}`}
-                      onClick={() => handleSharedByMeFileClick(share)}
+                      key={file.fileId}
+                      onClick={() => handleSharedByMeFileClick(file)}
                       className={`rounded-xl overflow-hidden shadow-md border ${
-                        selectedSharedByMeFile?.fileId === share.fileId &&
-                        selectedSharedByMeFile?.recipientUserId === share.recipientUserId
+                        selectedSharedByMeFile?.fileId === file.fileId
                           ? "border-purple-500 ring-2 ring-purple-500"
                           : "border-neutral-300 dark:border-neutral-700"
                       } bg-white dark:bg-purple-900/20 hover:scale-[1.02] hover:shadow-lg transition cursor-pointer`}
                     >
                       <div className="h-36 w-full bg-linear-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
                         <span className="text-6xl">
-                          {getFileIcon(share.originalFilename)}
+                          {getFileIcon(file.originalFilename)}
                         </span>
                       </div>
 
                       <div className="p-4">
                         <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                          {share.originalFilename}
+                          {file.originalFilename}
                         </p>
                         <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-                          Shared with {share.recipientName}
+                          Shared with {file.recipients.length} {file.recipients.length === 1 ? 'person' : 'people'}
                         </p>
                         <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
-                          {new Date(share.sharedAt).toLocaleDateString()}
+                          {file.recipients[0] && new Date(file.recipients[0].sharedAt).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
@@ -850,12 +861,80 @@ function RouteComponent() {
       {/* File Sidebar for "Shared By Me" */}
       {selectedSharedByMeFile && (
         <FileSidebar
-          file={convertShareRecordToFileMetadata(selectedSharedByMeFile)}
+          file={convertSharedByMeFileToFileMetadata(selectedSharedByMeFile)}
           onClose={() => setSelectedSharedByMeFile(null)}
-          ownerName={selectedSharedByMeFile.recipientName}
-          showShareButton={false}
+          onPreview={() => {}}
+          onDownload={async () => {
+            // Get the actual file to download
+            try {
+              const userKeysStr = localStorage.getItem("userKeypair");
+              if (!userKeysStr) {
+                toast.error("Encryption keys not found");
+                return;
+              }
+
+              const userKeys = JSON.parse(userKeysStr);
+              const userPublicKey = userKeys.x25519PublicKey || userKeys.x25519_public_key;
+              const userPrivateKey = userKeys.x25519PrivateKey || userKeys.x25519_private_key;
+
+              if (!userPublicKey || !userPrivateKey) {
+                toast.error("Invalid keypair data");
+                return;
+              }
+
+              const savePath = await save({
+                title: "Save decrypted file",
+                defaultPath: selectedSharedByMeFile.originalFilename,
+              });
+
+              if (!savePath) return;
+
+              const toastId = toast.loading(`Downloading ${selectedSharedByMeFile.originalFilename}...`);
+
+              const downloadInfo = await filesApi.getDownloadInfo(selectedSharedByMeFile.fileId);
+
+              const dekBase64 = await unwrapSharedDek(
+                downloadInfo.wrappedDek,
+                userPublicKey,
+                userPrivateKey
+              );
+
+              await downloadAndDecryptSharedFile(
+                downloadInfo.downloadUrl,
+                dekBase64,
+                downloadInfo.nonce,
+                savePath
+              );
+
+              toast.success("Download complete!", { id: toastId, description: `Saved to: ${savePath}` });
+            } catch (err) {
+              console.error("Download error:", err);
+              toast.error("Download failed", {
+                description: err instanceof Error ? err.message : "Unknown error"
+              });
+            }
+          }}
+          onDelete={() => {}}
+          onShare={async () => {
+            // Fetch the file details to get wrappedDek
+            try {
+              const downloadInfo = await filesApi.getDownloadInfo(selectedSharedByMeFile.fileId);
+              setShareFileData({
+                fileId: selectedSharedByMeFile.fileId,
+                fileName: selectedSharedByMeFile.originalFilename,
+                wrappedDek: downloadInfo.wrappedDek,
+              });
+              setShareFileDialogOpen(true);
+            } catch (err) {
+              console.error("Failed to get file info for sharing:", err);
+              toast.error("Failed to prepare file for sharing");
+            }
+          }}
+          ownerName={selectedSharedByMeFile.recipients[0]?.name}
+          showShareButton={true}
           isSharedFile={false}
           sharedByMe={true}
+          recipients={selectedSharedByMeFile.recipients}
         />
       )}
 
@@ -865,12 +944,60 @@ function RouteComponent() {
           folder={convertSharedFolderRecordToFolder(selectedSharedByMeFolder) as any}
           onClose={() => setSelectedSharedByMeFolder(null)}
           onOpenFolder={() => navigate({ to: `/dashboard/folders/${selectedSharedByMeFolder.folderId}` })}
+          onShare={async () => {
+            // Fetch the folder details to get wrappedFolderKey
+            try {
+              const folderDetails = await getFolderDetails(selectedSharedByMeFolder.folderId);
+              setShareFolderData({
+                folderId: selectedSharedByMeFolder.folderId,
+                folderName: selectedSharedByMeFolder.folderName,
+                wrappedFolderKey: folderDetails.folder.wrappedFolderKey,
+              });
+              setShareFolderDialogOpen(true);
+            } catch (err) {
+              console.error("Failed to get folder info for sharing:", err);
+              toast.error("Failed to prepare folder for sharing");
+            }
+          }}
           ownerName={selectedSharedByMeFolder.recipientName}
-          showShareButton={false}
+          showShareButton={true}
           showDeleteButton={false}
           showDownloadButton={false}
           showOpenButton={true}
           sharedByMe={true}
+        />
+      )}
+
+      {/* Share File Dialog */}
+      {shareFileData && (
+        <ShareFileDialog
+          open={shareFileDialogOpen}
+          onOpenChange={setShareFileDialogOpen}
+          fileId={shareFileData.fileId}
+          fileName={shareFileData.fileName}
+          wrappedDek={shareFileData.wrappedDek}
+          currentUserId={session.data?.user?.id}
+          onShareComplete={() => {
+            loadSharedFiles();
+            setShareFileDialogOpen(false);
+            setShareFileData(null);
+          }}
+        />
+      )}
+
+      {/* Share Folder Dialog */}
+      {shareFolderData && (
+        <ShareFolderDialog
+          open={shareFolderDialogOpen}
+          onOpenChange={setShareFolderDialogOpen}
+          folderId={shareFolderData.folderId}
+          folderName={shareFolderData.folderName}
+          wrappedFolderKey={shareFolderData.wrappedFolderKey}
+          onShareComplete={() => {
+            loadSharedFiles();
+            setShareFolderDialogOpen(false);
+            setShareFolderData(null);
+          }}
         />
       )}
     </main>

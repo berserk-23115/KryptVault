@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { db, file, fileKey, user } from "@krypt-vault/db";
+import { db, file, fileKey, user, folderKey, fileFolderKey } from "@krypt-vault/db";
 import { eq, and, desc, sql } from "@krypt-vault/db";
 import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -679,7 +679,89 @@ app.post("/:fileId/download", async (c) => {
 			return c.json({ error: "File not found" }, 404);
 		}
 		
-		// Check if user has access (owner or has a file key)
+		// Check if user owns the file
+		if (fileRecord.userId === userId) {
+			// Owner can download
+			// Check if file is in a folder
+			if (fileRecord.folderId) {
+				// File is in a folder - need to get folder key and file-folder key
+				const [folderKeyRecord] = await db
+					.select()
+					.from(folderKey)
+					.where(
+						and(
+							eq(folderKey.folderId, fileRecord.folderId),
+							eq(folderKey.recipientUserId, userId)
+						)
+					)
+					.limit(1);
+				
+				if (!folderKeyRecord) {
+					return c.json({ error: "Folder access not found" }, 500);
+				}
+				
+				const [fileFolderKeyRecord] = await db
+					.select()
+					.from(fileFolderKey)
+					.where(
+						and(
+							eq(fileFolderKey.fileId, fileId),
+							eq(fileFolderKey.folderId, fileRecord.folderId)
+						)
+					)
+					.limit(1);
+				
+				if (!fileFolderKeyRecord) {
+					return c.json({ error: "File encryption key not found for folder" }, 500);
+				}
+				
+				// Generate presigned URL
+				const command = new GetObjectCommand({
+					Bucket: fileRecord.s3Bucket,
+					Key: fileRecord.s3Key,
+				});
+				
+				const presignedUrl = await getSignedUrl(s3Presigner, command, {
+					expiresIn: 900, // 15 minutes
+				});
+				
+				// Return folder key and file-folder key so owner can decrypt
+				return c.json({
+					downloadUrl: presignedUrl,
+					wrappedFolderKey: folderKeyRecord.wrappedFolderKey, // Folder key wrapped with owner's key
+					wrappedDek: fileFolderKeyRecord.wrappedDek, // DEK wrapped with folder key
+					wrappingNonce: fileFolderKeyRecord.wrappingNonce,
+					nonce: fileRecord.nonce,
+					originalFilename: fileRecord.originalFilename,
+					mimeType: fileRecord.mimeType,
+				});
+			}
+			
+			// File is not in a folder - use the deprecated wrappedDek
+			if (!fileRecord.wrappedDek) {
+				return c.json({ error: "File encryption key not found" }, 500);
+			}
+			
+			// Generate presigned URL for download (valid for 15 minutes)
+			const command = new GetObjectCommand({
+				Bucket: fileRecord.s3Bucket,
+				Key: fileRecord.s3Key,
+			});
+			
+			const presignedUrl = await getSignedUrl(s3Presigner, command, {
+				expiresIn: 900, // 15 minutes
+			});
+			
+			return c.json({
+				downloadUrl: presignedUrl,
+				wrappedDek: fileRecord.wrappedDek,
+				nonce: fileRecord.nonce,
+				originalFilename: fileRecord.originalFilename,
+				mimeType: fileRecord.mimeType,
+			});
+		}
+		
+		// Check if file was directly shared with user (via fileKey)
 		const [fileKeyRecord] = await db
 			.select()
 			.from(fileKey)
@@ -691,28 +773,80 @@ app.post("/:fileId/download", async (c) => {
 			)
 			.limit(1);
 		
-		if (!fileKeyRecord) {
-			return c.json({ error: "Access denied" }, 403);
+		if (fileKeyRecord) {
+			// Generate presigned URL for download (valid for 15 minutes)
+			const command = new GetObjectCommand({
+				Bucket: fileRecord.s3Bucket,
+				Key: fileRecord.s3Key,
+			});
+			
+			const presignedUrl = await getSignedUrl(s3Presigner, command, {
+				expiresIn: 900, // 15 minutes
+			});
+			
+			return c.json({
+				downloadUrl: presignedUrl,
+				wrappedDek: fileKeyRecord.wrappedDek, // User-specific wrapped DEK
+				nonce: fileRecord.nonce,
+				originalFilename: fileRecord.originalFilename,
+				mimeType: fileRecord.mimeType,
+			});
 		}
 		
-		// Generate presigned URL for download (valid for 15 minutes)
-		const command = new GetObjectCommand({
-			Bucket: fileRecord.s3Bucket,
-			Key: fileRecord.s3Key,
-		});
+		// Check if user has access through a folder
+		if (fileRecord.folderId) {
+			// Check if user has access to the folder
+			const [folderAccess] = await db
+				.select()
+				.from(folderKey)
+				.where(
+					and(
+						eq(folderKey.folderId, fileRecord.folderId),
+						eq(folderKey.recipientUserId, userId)
+					)
+				)
+				.limit(1);
+			
+			if (folderAccess) {
+				// User has folder access, get the file-folder key
+				const [fileFolderKeyRecord] = await db
+					.select()
+					.from(fileFolderKey)
+					.where(
+						and(
+							eq(fileFolderKey.fileId, fileId),
+							eq(fileFolderKey.folderId, fileRecord.folderId)
+						)
+					)
+					.limit(1);
+				
+				if (!fileFolderKeyRecord) {
+					return c.json({ error: "File encryption key not found for folder" }, 500);
+				}
+				
+				// Generate presigned URL for download (valid for 15 minutes)
+				const command = new GetObjectCommand({
+					Bucket: fileRecord.s3Bucket,
+					Key: fileRecord.s3Key,
+				});
+				
+				const presignedUrl = await getSignedUrl(s3Presigner, command, {
+					expiresIn: 900, // 15 minutes
+				});
+				
+				return c.json({
+					downloadUrl: presignedUrl,
+					wrappedDek: fileFolderKeyRecord.wrappedDek, // DEK wrapped with folder key
+					wrappingNonce: fileFolderKeyRecord.wrappingNonce,
+					nonce: fileRecord.nonce,
+					originalFilename: fileRecord.originalFilename,
+					mimeType: fileRecord.mimeType,
+				});
+			}
+		}
 		
-		// Use s3Presigner to generate URL with correct public hostname
-		const presignedUrl = await getSignedUrl(s3Presigner, command, {
-			expiresIn: 900, // 15 minutes
-		});
-		
-		return c.json({
-			downloadUrl: presignedUrl,
-			wrappedDek: fileKeyRecord.wrappedDek, // User-specific wrapped DEK
-			nonce: fileRecord.nonce,
-			originalFilename: fileRecord.originalFilename,
-			mimeType: fileRecord.mimeType,
-		});
+		// No access found
+		return c.json({ error: "Access denied" }, 403);
 	} catch (error) {
 		console.error("Download error:", error);
 		return c.json({ error: "Failed to generate download URL" }, 500);

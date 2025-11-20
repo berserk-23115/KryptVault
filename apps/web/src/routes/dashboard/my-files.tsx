@@ -661,6 +661,10 @@ function RouteComponent() {
           onDelete={() => handleDeleteFolder(selectedFolder)}
           onShare={() => handleShareFolder(selectedFolder)}
           onDownload={() => handleDownloadFolder(selectedFolder)}
+          showShareButton={selectedFolder.ownerId === session.data?.user?.id}
+          showDeleteButton={selectedFolder.ownerId === session.data?.user?.id}
+          showDownloadButton={true}
+          showOpenButton={true}
         />
       )}
 

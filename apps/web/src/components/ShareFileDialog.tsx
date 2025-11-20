@@ -152,6 +152,22 @@ export function ShareFileDialog({
         return;
       }
 
+      // Get the wrappedDek - if not provided, fetch it from the API
+      let fileWrappedDek = wrappedDek;
+      if (!fileWrappedDek || fileWrappedDek === "") {
+        console.log("📥 Fetching wrappedDek from server...");
+        try {
+          const { filesApi } = await import("@/lib/files-api");
+          const downloadInfo = await filesApi.getDownloadInfo(fileId);
+          fileWrappedDek = downloadInfo.wrappedDek;
+          console.log("✅ Got wrappedDek from server");
+        } catch (err) {
+          console.error("Failed to get wrappedDek:", err);
+          toast.error("Failed to get file encryption key. This file may be in a folder.");
+          return;
+        }
+      }
+
       // Get recipient's public key
       console.log("🔍 Getting recipient public key for:", recipientUserId);
       const recipient = await getUserPublicKey(recipientUserId);
@@ -159,13 +175,13 @@ export function ShareFileDialog({
 
       // Re-wrap DEK for recipient
       console.log("🔄 Re-wrapping DEK...");
-      console.log("  - Wrapped DEK (first 50 chars):", wrappedDek.substring(0, 50) + "...");
+      console.log("  - Wrapped DEK (first 50 chars):", fileWrappedDek.substring(0, 50) + "...");
       console.log("  - User public key (first 20 chars):", userPublicKey.substring(0, 20) + "...");
       console.log("  - User private key exists:", !!userPrivateKey);
       console.log("  - Recipient public key (first 20 chars):", recipient.x25519PublicKey.substring(0, 20) + "...");
 
       const wrappedForRecipient = await shareFileKey(
-        wrappedDek,
+        fileWrappedDek,
         userPublicKey,
         userPrivateKey,
         recipient.x25519PublicKey

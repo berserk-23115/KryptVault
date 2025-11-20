@@ -54,6 +54,17 @@ export interface ShareRecord {
   sharedAt: Date;
 }
 
+export interface SharedByMeFile {
+  fileId: string;
+  originalFilename: string;
+  recipients: Array<{
+    userId: string;
+    name: string;
+    email: string;
+    sharedAt: Date;
+  }>;
+}
+
 export interface UserPublicKey {
   userId: string;
   x25519PublicKey: string;
@@ -161,7 +172,7 @@ export async function getSharedWithMe(): Promise<SharedFile[]> {
 /**
  * List files the current user has shared with others
  */
-export async function getSharedByMe(): Promise<ShareRecord[]> {
+export async function getSharedByMe(): Promise<SharedByMeFile[]> {
   const token = typeof window !== "undefined" ? localStorage.getItem("bearer_token") : null;
   const headers: HeadersInit = {};
   if (token) {
@@ -178,7 +189,7 @@ export async function getSharedByMe(): Promise<ShareRecord[]> {
   }
 
   const data = await response.json();
-  return data.shares;
+  return data.files;
 }
 
 /**
