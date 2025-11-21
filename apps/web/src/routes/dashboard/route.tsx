@@ -411,9 +411,7 @@ function RouteComponent() {
       <div className="flex flex-1 overflow-hidden">
         {/* SIDEBAR */}
         <aside
-          className={`${
-            sidebarOpen ? "w-64" : "w-0"
-          } transition-all duration-300 ease-in-out border-r border-slate-200/60 bg-white/70 dark:border-white/10 dark:bg-black/40 backdrop-blur-2xl flex flex-col shadow-[0_0_24px_rgba(148,163,184,0.55)] dark:shadow-[0_0_30px_rgba(15,23,42,0.95)]`}
+          className={`${sidebarOpen ? "w-64" : "w-0 opacity-0"} transition-all duration-300 ease-in-out border-r border-slate-200/60 bg-white/70 dark:border-white/10 dark:bg-black/40 backdrop-blur-2xl flex flex-col shadow-[0_0_24px_rgba(148,163,184,0.55)] dark:shadow-[0_0_30px_rgba(15,23,42,0.95)]`}
         >
           <nav className="flex-1 overflow-y-auto p-3 space-y-6">
             {/* New button with expanding panel */}
