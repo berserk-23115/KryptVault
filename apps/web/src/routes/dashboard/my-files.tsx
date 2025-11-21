@@ -169,11 +169,21 @@ function RouteComponent() {
         description: "Unwrapping encryption key...",
       });
 
-      const dekBase64 = await unwrapSharedDek(
-        downloadInfo.wrappedDek,
-        userPublicKey,
-        userPrivateKey
-      );
+      let dekBase64: string;
+      try {
+        dekBase64 = await unwrapSharedDek(
+          downloadInfo.wrappedDek,
+          userPublicKey,
+          userPrivateKey
+        );
+      } catch (unwrapError) {
+        console.error("Failed to unwrap DEK with user key:", unwrapError);
+        throw new Error(
+          "This file was encrypted with an incompatible key. " +
+          "It may have been uploaded before your keypair was set up. " +
+          "Please contact support or re-upload the file."
+        );
+      }
 
       // Download and decrypt using the unwrapped DEK
       toast.loading(`Downloading ${file.originalFilename}...`, {
@@ -339,11 +349,19 @@ function RouteComponent() {
           const downloadInfo = await filesApi.getDownloadInfo(file.fileId);
 
           // Unwrap the DEK using user's private key
-          const dekBase64 = await unwrapSharedDek(
-            downloadInfo.wrappedDek,
-            userPublicKey,
-            userPrivateKey
-          );
+          let dekBase64: string;
+          try {
+            dekBase64 = await unwrapSharedDek(
+              downloadInfo.wrappedDek,
+              userPublicKey,
+              userPrivateKey
+            );
+          } catch (unwrapError) {
+            console.error("Failed to unwrap DEK with user key:", unwrapError);
+            throw new Error(
+              `File "${file.originalFilename}" was encrypted with an incompatible key. Skipping.`
+            );
+          }
 
           // Create the output path
           const outputPath = `${dirPath}/${file.originalFilename}`;

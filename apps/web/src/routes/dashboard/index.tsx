@@ -130,11 +130,22 @@ const handleDownload = async (file: FileMetadata) => {
       });
 
       const { unwrapSharedDek, downloadAndDecryptSharedFile } = await import("@/lib/tauri-crypto");
-      const dekBase64 = await unwrapSharedDek(
-        downloadInfo.wrappedDek,
-        userPublicKey,
-        userPrivateKey
-      );
+      
+      let dekBase64: string;
+      try {
+        dekBase64 = await unwrapSharedDek(
+          downloadInfo.wrappedDek,
+          userPublicKey,
+          userPrivateKey
+        );
+      } catch (unwrapError) {
+        console.error("Failed to unwrap DEK with user key:", unwrapError);
+        throw new Error(
+          "This file was encrypted with an incompatible key. " +
+          "It may have been uploaded before your keypair was set up. " +
+          "Please contact support or re-upload the file."
+        );
+      }
 
       // Download and decrypt using the unwrapped DEK
       toast.loading(`Downloading ${file.originalFilename}...`, {
@@ -215,11 +226,22 @@ const handlePreview = async (file: FileMetadata) => {
       });
 
       const { unwrapSharedDek, downloadAndDecryptSharedFile } = await import("@/lib/tauri-crypto");
-      const dekBase64 = await unwrapSharedDek(
-        downloadInfo.wrappedDek,
-        userPublicKey,
-        userPrivateKey
-      );
+      
+      let dekBase64: string;
+      try {
+        dekBase64 = await unwrapSharedDek(
+          downloadInfo.wrappedDek,
+          userPublicKey,
+          userPrivateKey
+        );
+      } catch (unwrapError) {
+        console.error("Failed to unwrap DEK with user key:", unwrapError);
+        throw new Error(
+          "This file was encrypted with an incompatible key. " +
+          "It may have been uploaded before your keypair was set up. " +
+          "Please contact support or re-upload the file."
+        );
+      }
 
       // Download and decrypt using the unwrapped DEK
       toast.loading(`Preparing preview for ${file.originalFilename}...`, {

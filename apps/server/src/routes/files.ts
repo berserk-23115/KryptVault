@@ -735,14 +735,22 @@ app.post("/:fileId/download", async (c) => {
 					originalFilename: fileRecord.originalFilename,
 					mimeType: fileRecord.mimeType,
 				});
-			}
-			
-			// File is not in a folder - use the deprecated wrappedDek
-			if (!fileRecord.wrappedDek) {
-				return c.json({ error: "File encryption key not found" }, 500);
-			}
-			
-			// Generate presigned URL for download (valid for 15 minutes)
+		}
+		
+		// File is not in a folder - check fileKey table first, then fall back to deprecated wrappedDek
+		const [ownerFileKey] = await db
+			.select()
+			.from(fileKey)
+			.where(
+				and(
+					eq(fileKey.fileId, fileId),
+					eq(fileKey.recipientUserId, userId)
+				)
+			)
+			.limit(1);
+		
+		if (ownerFileKey) {
+			// Use the wrappedDek from fileKey table (new method)
 			const command = new GetObjectCommand({
 				Bucket: fileRecord.s3Bucket,
 				Key: fileRecord.s3Key,
@@ -754,14 +762,36 @@ app.post("/:fileId/download", async (c) => {
 			
 			return c.json({
 				downloadUrl: presignedUrl,
-				wrappedDek: fileRecord.wrappedDek,
+				wrappedDek: ownerFileKey.wrappedDek,
 				nonce: fileRecord.nonce,
 				originalFilename: fileRecord.originalFilename,
 				mimeType: fileRecord.mimeType,
 			});
 		}
 		
-		// Check if file was directly shared with user (via fileKey)
+		// Fall back to deprecated wrappedDek field for old files
+		if (!fileRecord.wrappedDek) {
+			return c.json({ error: "File encryption key not found" }, 500);
+		}
+		
+		// Generate presigned URL for download (valid for 15 minutes)
+		const command = new GetObjectCommand({
+			Bucket: fileRecord.s3Bucket,
+			Key: fileRecord.s3Key,
+		});
+		
+		const presignedUrl = await getSignedUrl(s3Presigner, command, {
+			expiresIn: 900, // 15 minutes
+		});
+		
+		return c.json({
+			downloadUrl: presignedUrl,
+			wrappedDek: fileRecord.wrappedDek,
+			nonce: fileRecord.nonce,
+			originalFilename: fileRecord.originalFilename,
+			mimeType: fileRecord.mimeType,
+		});
+	}		// Check if file was directly shared with user (via fileKey)
 		const [fileKeyRecord] = await db
 			.select()
 			.from(fileKey)
