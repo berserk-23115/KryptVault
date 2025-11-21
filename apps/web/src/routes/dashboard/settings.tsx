@@ -367,7 +367,7 @@ function RouteComponent() {
 
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
-          <Card className="border border-neutral-300 dark:border-neutral-800 shadow-none rounded-xl">
+          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
@@ -479,7 +479,7 @@ function RouteComponent() {
           </Card>
 
           {/* Password Change Section */}
-          <Card className="border border-neutral-300 dark:border-neutral-800 shadow-none rounded-xl">
+          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Key className="h-5 w-5" />
@@ -656,7 +656,7 @@ function RouteComponent() {
 
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-6">
-          <Card>
+          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Key className="h-5 w-5" />
@@ -744,7 +744,7 @@ function RouteComponent() {
           </Card>
 
           {/* Security Questions Section */}
-          <Card>
+          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
@@ -909,7 +909,7 @@ function RouteComponent() {
 
         {/* Preferences Tab */}
         <TabsContent value="preferences" className="space-y-6">
-          <Card>
+          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="h-5 w-5" />
@@ -944,7 +944,7 @@ function RouteComponent() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Trash2 className="h-5 w-5" />
@@ -1010,7 +1010,7 @@ function RouteComponent() {
 
         {/* Account Tab */}
         <TabsContent value="account" className="space-y-6">
-          <Card>
+          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Info className="h-5 w-5" />
@@ -1068,7 +1068,7 @@ function RouteComponent() {
             </CardContent>
           </Card>
 
-          <Card className="border-destructive">
+          <Card className="border-destructive bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-5 w-5" />
