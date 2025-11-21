@@ -30,7 +30,8 @@ import { ShareFolderDialog } from "@/components/ShareFolderDialog";
 import { filesApi, type FileMetadata } from "@/lib/files-api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ButtonGroup } from "@/components/ui/button-group";
-import { Card } from "@/components/ui/card";
+import { FileCard } from "@/components/FileCard";
+import { FolderCard } from "@/components/FolderCard";
 import type { Folder } from "@/lib/folders-api";
 
 export const Route = createFileRoute("/dashboard/shared")({
@@ -43,6 +44,7 @@ export const Route = createFileRoute("/dashboard/shared")({
     return { session };
   },
 });
+
 
 function RouteComponent() {
   const { session } = Route.useRouteContext();
@@ -344,42 +346,6 @@ function RouteComponent() {
     }
   };
 
-  const getFileIcon = (filename: string): string => {
-    const ext = filename.split(".").pop()?.toLowerCase();
-    const iconMap: Record<string, string> = {
-      pdf: "📄",
-      doc: "📝",
-      docx: "📝",
-      xls: "📊",
-      xlsx: "📊",
-      ppt: "📊",
-      pptx: "📊",
-      jpg: "🖼️",
-      jpeg: "🖼️",
-      png: "🖼️",
-      gif: "🖼️",
-      svg: "🖼️",
-      mp4: "🎥",
-      mov: "🎥",
-      avi: "🎥",
-      mp3: "🎵",
-      wav: "🎵",
-      zip: "🗜️",
-      rar: "🗜️",
-      "7z": "🗜️",
-      txt: "📃",
-    };
-    return iconMap[ext || ""] || "📁";
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-  };
-
   // Convert SharedFile to FileMetadata for sidebar compatibility
   const convertToFileMetadata = (file: SharedFile): FileMetadata => {
     return {
@@ -463,7 +429,7 @@ function RouteComponent() {
 
         {/* Tabs Section */}
         <Tabs defaultValue="shared-with-me" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsList className="grid w-full grid-cols-2 mb-6 bg-black/20 dark:bg-neutral-900 rounded-lg">
             <TabsTrigger value="shared-with-me">Shared With Me</TabsTrigger>
             <TabsTrigger value="shared-by-me">Shared By Me</TabsTrigger>
           </TabsList>
@@ -515,32 +481,23 @@ function RouteComponent() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
                   {sharedWithMeFolders.map((folder) => (
-                    <div
+                    <FolderCard
                       key={folder.folderId}
+                      folder={{
+                        folderId: folder.folderId,
+                        name: folder.name,
+                        createdAt: folder.sharedAt,
+                        parentFolderId: null,
+                        description: null,
+                        ownerId: folder.ownerId || "",
+                        ownerName: folder.ownerName || "",
+                        wrappedFolderKey: "",
+                      }}
                       onClick={() => handleFolderClick(folder)}
-                      onDoubleClick={() =>
-                        navigate({
-                          to: `/dashboard/folders/${folder.folderId}`,
-                        })
-                      }
-                      className="bg-neutral-100 dark:bg-neutral-900 rounded-lg p-4 border border-neutral-300 dark:border-neutral-800 hover:border-purple-400 dark:hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-800/50 transition cursor-pointer group"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3 flex-1">
-                          <div className="w-12 h-12 bg-linear-to-br from-purple-200 to-purple-400 dark:from-purple-600 dark:to-purple-800 rounded flex items-center justify-center">
-                            <FolderOpen className="h-6 w-6 text-purple-800 dark:text-white" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-neutral-900 dark:text-white truncate">
-                              {folder.name}
-                            </h3>
-                            <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
-                              Shared by {folder.ownerName}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                      onDoubleClick={() => navigate({ to: `/dashboard/folders/${folder.folderId}` })}
+                      isSelected={selectedFolder?.folderId === folder.folderId}
+                      currentUserId={session.data?.user?.id || ""}
+                    />
                   ))}
                 </div>
               </section>
@@ -599,9 +556,6 @@ function RouteComponent() {
                         >
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
-                              <span className="text-2xl">
-                                {getFileIcon(file.originalFilename)}
-                              </span>
                               <span className="text-neutral-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 cursor-pointer">
                                 {file.originalFilename}
                               </span>
@@ -629,36 +583,12 @@ function RouteComponent() {
                 // GRID VIEW
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                   {sharedWithMeFiles.map((file) => (
-                    <div
+                    <FileCard
                       key={file.fileId}
+                      file={convertToFileMetadata(file)}
                       onClick={() => handleFileClick(file)}
-                      className={`rounded-xl overflow-hidden shadow-md border 
-                      ${
-                        selectedFile?.fileId === file.fileId
-                          ? "border-purple-500 ring-2 ring-purple-500"
-                          : "border-neutral-300 dark:border-neutral-700"
-                      }
-                      bg-white dark:bg-purple-900/20 
-                      hover:scale-[1.02] hover:shadow-lg transition cursor-pointer`}
-                    >
-                      <div className="h-36 w-full bg-linear-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
-                        <span className="text-6xl">
-                          {getFileIcon(file.originalFilename)}
-                        </span>
-                      </div>
-
-                      <div className="p-4">
-                        <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                          {file.originalFilename}
-                        </p>
-                        <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-                          {formatFileSize(file.fileSize)}
-                        </p>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
-                          Shared by {file.sharedByEmail}
-                        </p>
-                      </div>
-                    </div>
+                      isSelected={selectedFile?.fileId === file.fileId}
+                    />
                   ))}
                 </div>
               )}
@@ -675,32 +605,21 @@ function RouteComponent() {
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
                   {sharedByMeFolderRecords.map((share) => (
-                    <div
+                    <FolderCard
                       key={`${share.folderId}-${share.recipientUserId}`}
+                      folder={convertSharedFolderRecordToFolder(share)}
                       onClick={() => handleSharedByMeFolderClick(share)}
-                      className={`bg-neutral-100 dark:bg-neutral-900 rounded-lg p-4 border ${
+                      onDoubleClick={() =>
+                        navigate({
+                          to: `/dashboard/folders/${share.folderId}`,
+                        })
+                      }
+                      isSelected={
                         selectedSharedByMeFolder?.folderId === share.folderId &&
                         selectedSharedByMeFolder?.recipientUserId === share.recipientUserId
-                          ? "border-purple-500 ring-2 ring-purple-500"
-                          : "border-neutral-300 dark:border-neutral-800"
-                      } hover:border-purple-400 dark:hover:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-800/50 transition cursor-pointer group`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3 flex-1">
-                          <div className="w-12 h-12 bg-linear-to-br from-purple-200 to-purple-400 dark:from-purple-600 dark:to-purple-800 rounded flex items-center justify-center">
-                            <FolderOpen className="h-6 w-6 text-purple-800 dark:text-white" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-neutral-900 dark:text-white truncate">
-                              {share.folderName}
-                            </h3>
-                            <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
-                              Shared with {share.recipientName}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                      }
+                      currentUserId={session.data?.user?.id || ""}
+                    />
                   ))}
                 </div>
               </section>
@@ -760,9 +679,6 @@ function RouteComponent() {
                         >
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
-                              <span className="text-2xl">
-                                {getFileIcon(file.originalFilename)}
-                              </span>
                               <span className="text-neutral-900 dark:text-white">
                                 {file.originalFilename}
                               </span>
@@ -794,33 +710,12 @@ function RouteComponent() {
                 // GRID VIEW
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                   {sharedByMeFiles.map((file) => (
-                    <div
+                    <FileCard
                       key={file.fileId}
+                      file={convertSharedByMeFileToFileMetadata(file)}
                       onClick={() => handleSharedByMeFileClick(file)}
-                      className={`rounded-xl overflow-hidden shadow-md border ${
-                        selectedSharedByMeFile?.fileId === file.fileId
-                          ? "border-purple-500 ring-2 ring-purple-500"
-                          : "border-neutral-300 dark:border-neutral-700"
-                      } bg-white dark:bg-purple-900/20 hover:scale-[1.02] hover:shadow-lg transition cursor-pointer`}
-                    >
-                      <div className="h-36 w-full bg-linear-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
-                        <span className="text-6xl">
-                          {getFileIcon(file.originalFilename)}
-                        </span>
-                      </div>
-
-                      <div className="p-4">
-                        <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                          {file.originalFilename}
-                        </p>
-                        <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-                          Shared with {file.recipients.length} {file.recipients.length === 1 ? 'person' : 'people'}
-                        </p>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
-                          {file.recipients[0] && new Date(file.recipients[0].sharedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
+                      isSelected={selectedSharedByMeFile?.fileId === file.fileId}
+                    />
                   ))}
                 </div>
               )}
@@ -834,7 +729,6 @@ function RouteComponent() {
         <FileSidebar
           file={convertToFileMetadata(selectedFile)}
           onClose={() => setSelectedFile(null)}
-          onPreview={(file) => handlePreview(selectedFile)}
           onDownload={(file) => handleDownload(selectedFile)}
           ownerName={selectedFile.sharedBy}
           showShareButton={false}
@@ -863,7 +757,6 @@ function RouteComponent() {
         <FileSidebar
           file={convertSharedByMeFileToFileMetadata(selectedSharedByMeFile)}
           onClose={() => setSelectedSharedByMeFile(null)}
-          onPreview={() => {}}
           onDownload={async () => {
             // Get the actual file to download
             try {
@@ -964,7 +857,6 @@ function RouteComponent() {
           showDeleteButton={false}
           showDownloadButton={false}
           showOpenButton={true}
-          sharedByMe={true}
         />
       )}
 
@@ -1001,303 +893,5 @@ function RouteComponent() {
         />
       )}
     </main>
-  );
-}
-
-// Shared File List Item Component
-function SharedFileListItem({
-  file,
-  onClick,
-  isSelected,
-}: {
-  file: SharedFile;
-  onClick: () => void;
-  isSelected?: boolean;
-}) {
-  const getFileIcon = (filename: string) => {
-    const ext = filename.split(".").pop()?.toLowerCase();
-    const iconMap: Record<string, string> = {
-      pdf: "📄",
-      doc: "📝",
-      docx: "📝",
-      xls: "📊",
-      xlsx: "📊",
-      ppt: "📊",
-      pptx: "📊",
-      jpg: "🖼️",
-      jpeg: "🖼️",
-      png: "🖼️",
-      gif: "🖼️",
-      svg: "🖼️",
-      mp4: "🎥",
-      mov: "🎥",
-      avi: "🎥",
-      mp3: "🎵",
-      wav: "🎵",
-      zip: "🗜️",
-      rar: "🗜️",
-      "7z": "🗜️",
-      txt: "📃",
-    };
-    return iconMap[ext || ""] || "📁";
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-  };
-
-  return (
-    <div
-      onClick={onClick}
-      className={`rounded-lg border p-4 transition cursor-pointer ${
-        isSelected
-          ? "border-blue-500 ring-2 ring-blue-500 bg-blue-500/10"
-          : "border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
-      } bg-neutral-50 dark:bg-neutral-800/30`}
-    >
-      <div className="flex items-center gap-4">
-        <div className="shrink-0">
-          <span className="text-3xl">{getFileIcon(file.originalFilename)}</span>
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-            {file.originalFilename}
-          </p>
-          <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-            {formatFileSize(file.fileSize)} ·{" "}
-            {new Date(file.sharedAt).toLocaleDateString()}
-          </p>
-          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-            From: {file.sharedByEmail}
-          </p>
-        </div>
-
-        <div className="shrink-0">
-          <Share2Icon className="h-5 w-5 text-blue-500" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Shared File Card Component
-function SharedFileCard({
-  file,
-  onClick,
-  onDoubleClick,
-  isSelected,
-}: {
-  file: SharedFile;
-  onClick: () => void;
-  onDoubleClick: () => void;
-  isSelected?: boolean;
-}) {
-  const getFileIcon = (filename: string) => {
-    const ext = filename.split(".").pop()?.toLowerCase();
-
-    const iconMap: Record<string, string> = {
-      pdf: "📄",
-      doc: "📝",
-      docx: "📝",
-      xls: "📊",
-      xlsx: "📊",
-      ppt: "📊",
-      pptx: "📊",
-      jpg: "🖼️",
-      jpeg: "🖼️",
-      png: "🖼️",
-      gif: "🖼️",
-      svg: "🖼️",
-      mp4: "🎥",
-      mov: "🎥",
-      avi: "🎥",
-      mp3: "🎵",
-      wav: "🎵",
-      zip: "🗜️",
-      rar: "🗜️",
-      "7z": "🗜️",
-      txt: "📃",
-    };
-
-    return iconMap[ext || ""] || "📁";
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-  };
-
-  return (
-    <div
-      onClick={onClick}
-      onDoubleClick={onDoubleClick}
-      className={`rounded-xl overflow-hidden shadow-md border 
-      ${
-        isSelected
-          ? "border-blue-500 ring-2 ring-blue-500"
-          : "border-neutral-300 dark:border-neutral-700"
-      }
-      bg-white dark:bg-blue-900/20 
-      hover:scale-[1.02] hover:shadow-lg transition cursor-pointer relative`}
-    >
-      {/* Shared indicator badge */}
-      <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
-        <Share2Icon className="h-3 w-3" />
-        <span>Shared</span>
-      </div>
-
-      <div className="h-36 w-full bg-linear-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
-        <span className="text-6xl">{getFileIcon(file.originalFilename)}</span>
-      </div>
-
-      <div className="p-4">
-        <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-          {file.originalFilename}
-        </p>
-        <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-          {formatFileSize(file.fileSize)}
-        </p>
-        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 truncate">
-          From: {file.sharedByEmail}
-        </p>
-        <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
-          {new Date(file.sharedAt).toLocaleDateString()}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// Shared By Me Card Component (List View)
-function SharedByMeCard({ share }: { share: ShareRecord }) {
-  const getFileIcon = (filename: string) => {
-    const ext = filename.split(".").pop()?.toLowerCase();
-
-    const iconMap: Record<string, string> = {
-      pdf: "📄",
-      doc: "📝",
-      docx: "📝",
-      xls: "📊",
-      xlsx: "📊",
-      ppt: "📊",
-      pptx: "📊",
-      jpg: "🖼️",
-      jpeg: "🖼️",
-      png: "🖼️",
-      gif: "🖼️",
-      svg: "🖼️",
-      mp4: "🎥",
-      mov: "🎥",
-      avi: "🎥",
-      mp3: "🎵",
-      wav: "🎵",
-      zip: "🗜️",
-      rar: "🗜️",
-      "7z": "🗜️",
-      txt: "📃",
-    };
-
-    return iconMap[ext || ""] || "📁";
-  };
-
-  return (
-    <div className="rounded-lg border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 p-4 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition">
-      <div className="flex items-center gap-4">
-        <div className="shrink-0">
-          <span className="text-3xl">
-            {getFileIcon(share.originalFilename)}
-          </span>
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-            {share.originalFilename}
-          </p>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-            Shared with:{" "}
-            <span className="font-medium">{share.recipientEmail}</span>
-          </p>
-          {share.recipientName && (
-            <p className="text-xs text-neutral-500 dark:text-neutral-500">
-              {share.recipientName}
-            </p>
-          )}
-          <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
-            {new Date(share.sharedAt).toLocaleDateString()} at{" "}
-            {new Date(share.sharedAt).toLocaleTimeString()}
-          </p>
-        </div>
-
-        <div className="shrink-0">
-          <Share2Icon className="h-5 w-5 text-blue-500" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Shared By Me Card Component (Grid View)
-function SharedByMeCardGrid({ share }: { share: ShareRecord }) {
-  const getFileIcon = (filename: string) => {
-    const ext = filename.split(".").pop()?.toLowerCase();
-
-    const iconMap: Record<string, string> = {
-      pdf: "📄",
-      doc: "📝",
-      docx: "📝",
-      xls: "📊",
-      xlsx: "📊",
-      ppt: "📊",
-      pptx: "📊",
-      jpg: "🖼️",
-      jpeg: "🖼️",
-      png: "🖼️",
-      gif: "🖼️",
-      svg: "🖼️",
-      mp4: "🎥",
-      mov: "🎥",
-      avi: "🎥",
-      mp3: "🎵",
-      wav: "🎵",
-      zip: "🗜️",
-      rar: "🗜️",
-      "7z": "🗜️",
-      txt: "📃",
-    };
-
-    return iconMap[ext || ""] || "📁";
-  };
-
-  return (
-    <div className="rounded-xl overflow-hidden shadow-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-purple-900/20 hover:scale-[1.02] hover:shadow-lg transition">
-      <div className="h-36 w-full bg-linear-to-br from-green-500/20 to-purple-500/20 flex items-center justify-center">
-        <span className="text-6xl">{getFileIcon(share.originalFilename)}</span>
-      </div>
-
-      <div className="p-4">
-        <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-          {share.originalFilename}
-        </p>
-        <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 truncate">
-          To: {share.recipientEmail}
-        </p>
-        {share.recipientName && (
-          <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1 truncate">
-            {share.recipientName}
-          </p>
-        )}
-        <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
-          {new Date(share.sharedAt).toLocaleDateString()}
-        </p>
-      </div>
-    </div>
   );
 }

@@ -348,16 +348,26 @@ function RouteComponent() {
         </div>
 
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="security">Security</TabsTrigger>
-            <TabsTrigger value="preferences">Preferences</TabsTrigger>
-            <TabsTrigger value="account">Account</TabsTrigger>
-        </TabsList>
+          <TabsList className="flex w-full gap-2 bg-purple-400/20 p-1 rounded-xl ">
+            {["profile", "security", "preferences", "account"].map((tab) => (
+              <TabsTrigger
+                key={tab}
+                value={tab}
+                className="
+                  flex-1 rounded-lg data-[state=active]:bg-purple-600
+                  data-[state=active]:text-white
+                  transition-all
+                "
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
 
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
-          <Card>
+          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
@@ -469,7 +479,7 @@ function RouteComponent() {
           </Card>
 
           {/* Password Change Section */}
-          <Card>
+          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Key className="h-5 w-5" />
@@ -646,7 +656,7 @@ function RouteComponent() {
 
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-6">
-          <Card>
+          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Key className="h-5 w-5" />
@@ -734,7 +744,7 @@ function RouteComponent() {
           </Card>
 
           {/* Security Questions Section */}
-          <Card>
+          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
@@ -899,7 +909,7 @@ function RouteComponent() {
 
         {/* Preferences Tab */}
         <TabsContent value="preferences" className="space-y-6">
-          <Card>
+          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="h-5 w-5" />
@@ -934,7 +944,7 @@ function RouteComponent() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Trash2 className="h-5 w-5" />
@@ -1000,7 +1010,7 @@ function RouteComponent() {
 
         {/* Account Tab */}
         <TabsContent value="account" className="space-y-6">
-          <Card>
+          <Card className="border border-neutral-300 dark:border-neutral-800 bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Info className="h-5 w-5" />
@@ -1058,7 +1068,7 @@ function RouteComponent() {
             </CardContent>
           </Card>
 
-          <Card className="border-destructive">
+          <Card className="border-destructive bg-white/60 dark:bg-gray-900/70 rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-5 w-5" />

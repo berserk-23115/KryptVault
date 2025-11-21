@@ -1,6 +1,5 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -10,8 +9,19 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import { FolderOpen, Download, Share2, Trash2, User } from "lucide-react";
-import { toast } from "sonner";
+import { Separator } from "@/components/ui/separator";
+
+import {
+  FolderIcon,
+  Share2Icon,
+  TrashIcon,
+  DownloadIcon,
+  UserIcon,
+  CalendarIcon,
+  InfoIcon,
+  LayersIcon,
+} from "lucide-react";
+
 import type { Folder } from "@/lib/folders-api";
 
 interface FolderSidebarProps {
@@ -26,7 +36,6 @@ interface FolderSidebarProps {
   showDeleteButton?: boolean;
   showDownloadButton?: boolean;
   showOpenButton?: boolean;
-  sharedByMe?: boolean; // New prop to indicate this is shown in "Shared By Me" section
 }
 
 export function FolderSidebar({
@@ -41,147 +50,165 @@ export function FolderSidebar({
   showDeleteButton = true,
   showDownloadButton = true,
   showOpenButton = true,
-  sharedByMe = false,
 }: FolderSidebarProps) {
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false);
 
-  const handleDownloadFolder = async () => {
-    if (onDownload) {
-      onDownload();
-    } else {
-      toast.info("Downloading folder...", {
-        description: "This feature will download all files in the folder.",
-      });
-      // TODO: Implement folder download functionality
-    }
-  };
-
   return (
-    <aside className="w-96 border-l border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-950 flex flex-col overflow-y-auto">
-      <div className="p-6 flex flex-col h-full">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <FolderOpen className="h-5 w-5 text-neutral-700 dark:text-neutral-300 shrink-0" />
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white truncate">
+    <aside className="w-90 flex flex-col">
+      <div className="p-6 flex flex-col h-full bg-white dark:bg-purple-900/10 rounded-xl border dark:border-white/20 shadow-[0_0_28px_rgba(168,85,247,0.3)]">
+        
+        {/* HEADER */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-4 min-w-0">
+            <FolderIcon className="h-8 w-8 text-purple-400" />
+            <h2 className="text-lg font-semibold dark:text-white truncate">
               {folder.name}
             </h2>
           </div>
+
           <Button
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="shrink-0"
+            className="text-neutral-500 hover:text-white bg-white/14 hover:bg-neutral-800 rounded-lg"
           >
-            <span className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white">✕</span>
+            ✕
           </Button>
         </div>
 
-        <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6">
-          Folder details and options
+        <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+          Folder details
         </p>
 
-        {/* Folder Icon Preview */}
-        <div className="aspect-video bg-linear-to-br from-purple-200 to-purple-400 dark:from-purple-600 dark:to-purple-800 rounded-lg flex items-center justify-center mb-6">
-          <FolderOpen className="h-16 w-16 text-purple-800 dark:text-white" />
-        </div>
+        <Separator className="bg-neutral-800 mb-6" />
 
-        {/* Folder Info - Scrollable */}
-        <div className="space-y-4 mb-6 flex-1 overflow-y-auto">
+        {/* DETAILS AREA */}
+        <div className="space-y-6 flex-1 overflow-y-auto pr-1">
+
+          {/* FOLDER NAME */}
+          <DetailBlock
+            icon={<FolderIcon className="h-4 w-4 text-purple-400" />}
+            label="Folder Name"
+            value={folder.name}
+          />
+
+          {/* FOLDER ID */}
+          <DetailBlock
+            icon={<InfoIcon className="h-4 w-4 text-purple-400" />}
+            label="Folder ID"
+            value={folder.folderId}
+          />
+
+          {/* CREATED DATE */}
+          {folder.createdAt && (
+            <DetailBlock
+              icon={<CalendarIcon className="h-4 w-4 text-purple-400" />}
+              label="Created At"
+              value={new Date(folder.createdAt).toLocaleString()}
+            />
+          )}
+
+          {/* OWNER */}
+          <DetailBlock
+            icon={<UserIcon className="h-4 w-4 text-purple-400" />}
+            label="Owner"
+            value={ownerName || folder.ownerName || "Unknown"}
+          />
+
+          {/* FILE COUNT */}
+          {/* {folder.fileCount !== undefined && (
+            <DetailBlock
+              icon={<LayersIcon className="h-4 w-4 text-purple-400" />}
+              label="Items Inside"
+              value={`${folder.fileCount} file(s)`}
+            />
+          )} */}
+
+          <Separator className="shadow-[0_0_52px_rgba(168,85,247,0.3)]" />
+
+          {/* STATUS */}
           <div>
-            <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400 mb-1">
-              <FolderOpen className="h-4 w-4" />
-              <span>Folder Name</span>
+            <div className="text-sm dark:text-neutral-400 font-bold mb-1 flex items-center gap-2">
+              <InfoIcon className="h-4 w-4 text-purple-400" />
+              Status
             </div>
-            <p className="text-lg font-medium text-neutral-900 dark:text-white">
-              {folder.name}
+
+            <p className="text-green-400 text-sm font-medium">
+              Secure & Encrypted
             </p>
           </div>
-
-          <Separator className="bg-neutral-300 dark:bg-neutral-800" />
-
-          <div>
-            <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400 mb-1">
-              <User className="h-4 w-4" />
-              <span>{sharedByMe ? "Shared With" : "Owner"}</span>
-            </div>
-            <p className="text-lg font-medium text-neutral-900 dark:text-white">
-              {ownerName || folder.ownerName}
-            </p>
-          </div>
         </div>
 
-        {/* Actions - Fixed at Bottom */}
-        <div className="space-y-2 pt-6 border-t border-neutral-300 dark:border-neutral-800">
+        {/* ACTIONS */}
+        <div className="space-y-2 pt-6 border-t border-neutral-800">
+          
+          {/* SHARE */}
           {showShareButton && onShare && (
             <Button
               onClick={onShare}
-              className="w-full bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
               variant="outline"
+              className="w-full bg-neutral-900 border-neutral-700 text-white hover:bg-black/70 hover:text-white"
             >
-              <Share2 className="h-4 w-4 mr-2" />
+              <Share2Icon className="h-4 w-4 mr-2" />
               Share Folder
             </Button>
           )}
-          
-          {showDownloadButton && (
+
+          {/* DOWNLOAD */}
+          {showDownloadButton && onDownload && (
             <Button
-              onClick={handleDownloadFolder}
-              className="w-full bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              variant="outline"
+              onClick={onDownload}
+              className="w-full bg-gradient-to-r from-purple-400 to-blue-300 dark:from-purple-800 dark:to-blue-900/90 hover:shadow-[0_0_10px_rgba(168,85,247,0.45)] font-bold text-black dark:text-white"
             >
-              <Download className="h-4 w-4 mr-2" />
+              <DownloadIcon className="h-4 w-4 mr-2" />
               Download Folder
             </Button>
           )}
-          
+
+          {/* OPEN */}
           {showOpenButton && (
             <Button
               onClick={onOpenFolder}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-              variant="default"
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold"
             >
-              <FolderOpen className="h-4 w-4 mr-2" />
+              <FolderIcon className="h-4 w-4 mr-2" />
               Open Folder
             </Button>
           )}
 
+          {/* DELETE */}
           {showDeleteButton && onDelete && (
             <>
               <Button
                 onClick={() => setIsDeleteOpen(true)}
-                className="w-full bg-red-600 hover:bg-red-700 text-white"
                 variant="destructive"
+                className="w-full bg-red-500 dark:bg-red-800 hover:bg-red-900/80 text-white hover:shadow-[0_0_20px_rgba(200,0,0,0.5)]"
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                <TrashIcon className="h-4 w-4 mr-2" />
                 Delete Folder
               </Button>
 
               <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-                <DialogContent className="bg-white dark:bg-neutral-900 border-neutral-300 dark:border-neutral-800">
+                <DialogContent className="bg-white dark:bg-neutral-900 border border-neutral-700">
                   <DialogHeader>
-                    <DialogTitle className="text-neutral-900 dark:text-white">Confirm delete</DialogTitle>
-                    <DialogDescription className="text-neutral-600 dark:text-neutral-400">
-                      Are you sure you want to permanently delete "{folder.name}" and all files inside it? This action cannot be undone.
+                    <DialogTitle className="text-neutral-200">Confirm delete</DialogTitle>
+                    <DialogDescription className="text-neutral-400">
+                      Delete "{folder.name}" and all files inside it? This action cannot be undone.
                     </DialogDescription>
                   </DialogHeader>
 
-                  <DialogFooter>
+                  <DialogFooter className="mt-4">
                     <DialogClose asChild>
-                      <Button variant="outline" onClick={() => setIsDeleteOpen(false)} className="bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white border-neutral-300 dark:border-neutral-700">
+                      <Button variant="outline" className="text-neutral-300 border-neutral-600">
                         Cancel
                       </Button>
                     </DialogClose>
 
                     <Button
                       variant="destructive"
-                      className="bg-red-600 hover:bg-red-700 text-white"
                       onClick={() => {
-                        try {
-                          onDelete();
-                        } finally {
-                          setIsDeleteOpen(false);
-                        }
+                        onDelete();
+                        setIsDeleteOpen(false);
                       }}
                     >
                       Delete
@@ -194,5 +221,26 @@ export function FolderSidebar({
         </div>
       </div>
     </aside>
+  );
+}
+
+/* REUSABLE DETAIL BLOCK */
+function DetailBlock({
+  icon,
+  label,
+  value,
+}: {
+  icon: any;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 text-sm font-bold dark:text-neutral-400 mb-1">
+        {icon}
+        <span>{label}</span>
+      </div>
+      <p className="text-lg font-medium dark:text-white">{value}</p>
+    </div>
   );
 }

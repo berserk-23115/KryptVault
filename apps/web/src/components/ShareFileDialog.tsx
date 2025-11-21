@@ -232,7 +232,19 @@ export function ShareFileDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent
+        className="
+          sm:max-w-[600px]
+          bg-white dark:bg-black 
+          border border-purple-500/20 
+          backdrop-blur-xl 
+          shadow-[0_0_28px_rgba(168,85,247,0.45)]
+          dark:shadow-[0_0_38px_rgba(168,85,247,0.55)]
+          rounded-2xl
+          transition-all
+          duration-300
+        "
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5" />

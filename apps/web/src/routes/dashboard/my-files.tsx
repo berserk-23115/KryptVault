@@ -13,6 +13,8 @@ import { FileSidebar } from "@/components/FileSidebar";
 import { FolderSidebar } from "@/components/FolderSidebar";
 import { ShareFolderDialog } from "@/components/ShareFolderDialog";
 import { ShareFileDialog } from "@/components/ShareFileDialog";
+import { FolderCard } from "@/components/FolderCard";
+import { FileCard } from "@/components/FileCard";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -437,6 +439,60 @@ function RouteComponent() {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
+  const toggleSelectAll = () => {
+    if (selectedFiles.size === files.length) {
+      setSelectedFiles(new Set()); // unselect all
+    } else {
+      setSelectedFiles(new Set(files.map((f) => f.id))); // select all
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!confirm(`Delete ${selectedFiles.size} selected files?`)) return;
+
+    const toastId = toast.loading(`Deleting ${selectedFiles.size} files...`);
+
+    try {
+      for (const fileId of selectedFiles) {
+        const file = files.find((f) => f.id === fileId);
+        if (!file) continue;
+        await filesApi.deleteFile(fileId);
+      }
+
+      setSelectedFiles(new Set());
+      await loadData();
+
+      toast.success("Selected files deleted", {
+        id: toastId,
+      });
+    } catch (err) {
+      toast.error("Failed to delete some files", {
+        id: toastId,
+      });
+    }
+  };
+
+  const handleDownloadSelected = async () => {
+    const toastId = toast.loading(`Downloading ${selectedFiles.size} files...`);
+
+    try {
+      for (const fileId of selectedFiles) {
+        const file = files.find((f) => f.id === fileId);
+        if (!file) continue;
+
+        await handleDownload(file);
+      }
+
+      toast.success("All selected files downloaded", {
+        id: toastId,
+      });
+    } catch (err) {
+      toast.error("Failed downloading some files", {
+        id: toastId,
+      });
+    }
+  };
+
   return (
     <main className="flex h-full overflow-hidden bg-white dark:bg-neutral-950">
       {/* Main Content Area */}
@@ -515,7 +571,9 @@ function RouteComponent() {
                   onDoubleClick={() =>
                     navigate({ to: `/dashboard/folders/${folder.folderId}` })
                   }
+                  currentUserId={session.data?.user?.id || ""}
                 />
+                
               ))}
             </div>
           )}
@@ -523,7 +581,30 @@ function RouteComponent() {
 
         {/* Pinned Important Files Section */}
         <div>
-          <h2 className="text-2xl font-bold mb-4 text-neutral-900 dark:text-white">Files</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
+              Files
+            </h2>
+
+            {selectedFiles.size > 1 && (
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleDownloadSelected}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  Download Selected ({selectedFiles.size})
+                </Button>
+
+                <Button
+                  onClick={handleDeleteSelected}
+                  variant="destructive"
+                  className="bg-red-500 dark:bg-red-700 hover:bg-red-900 text-white"
+                >
+                  Delete Selected ({selectedFiles.size})
+                </Button>
+              </div>
+            )}
+          </div>
 
           {loading ? (
             <div className="text-center py-12 text-neutral-600 dark:text-neutral-500">Loading files...</div>
@@ -538,7 +619,11 @@ function RouteComponent() {
                 <thead>
                   <tr className="border-b border-neutral-300 dark:border-neutral-800">
                     <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300 w-12">
-                      <Checkbox />
+                      <Checkbox
+                      checked={selectedFiles.size === files.length && files.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+
                     </th>
                     <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">Name</th>
                     {/* <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">File Type</th> */}
@@ -561,14 +646,14 @@ function RouteComponent() {
                     >
                       <td className="py-4 px-4">
                         <Checkbox
-                          checked={selectedFile?.id === file.id}
-                          onCheckedChange={() => setSelectedFile(selectedFile?.id === file.id ? null : file)}
+                          checked={selectedFiles.has(file.id)}
+                          onCheckedChange={() => toggleFileSelection(file.id)}
                         />
+
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
-                          <span className="text-2xl">{getFileIcon(file.originalFilename)}</span>
-                          <span className="text-neutral-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 cursor-pointer">
+                          <span className="text-neutral-900 dark:text-white hover:text-purple-600 dark:hover: dark:hover:text-purple-600 cursor-pointer">
                             {file.originalFilename}
                           </span>
                         </div>
@@ -642,7 +727,6 @@ function RouteComponent() {
         <FileSidebar
           file={selectedFile}
           onClose={() => setSelectedFile(null)}
-          onPreview={() => handleDownload(selectedFile)}
           onDownload={() => handleDownload(selectedFile)}
           onDelete={() => handleDelete(selectedFile)}
           onShare={() => handleShareFile(selectedFile)}
@@ -700,136 +784,4 @@ function RouteComponent() {
       )}
     </main>
   );
-}
-
-function FileCard({
-  file,
-  onClick,
-  isSelected,
-}: {
-  file: FileMetadata;
-  onClick: () => void;
-  isSelected?: boolean;
-}) {
-  const ext = file.originalFilename.split(".").pop()?.toLowerCase();
-  const Icon = getFileIcon(ext);
-
-  return (
-    <div
-      onClick={onClick}
-      className={`
-        group w-full flex items-center gap-4 rounded-2xl p-4 cursor-pointer
-        backdrop-blur-xl transition-all border
-        bg-white/60 dark:bg-purple-200/10
-        shadow-[0_2px_10px_rgba(0,0,0,0.15)]
-        hover:shadow-[0_4px_22px_rgba(168,85,247,0.35)]
-        hover:scale-[1.01]
-
-        ${isSelected
-          ? "border-purple-500/70 ring-2 ring-purple-400"
-          : "border-white/20 dark:border-white/10"}
-      `}
-    >
-      {/* ICON */}
-      <div className="flex items-center justify-center">
-        <Icon className="w-10 h-10 text-purple-300 group-hover:text-purple-300 transition" />
-      </div>
-
-      {/* FILE TEXT INFO */}
-      <div className="flex flex-col min-w-0">
-        <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-          {file.originalFilename}
-        </p>
-
-        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-          {formatFileSize(file.fileSize)} • {ext?.toUpperCase() || "FILE"}
-        </p>
-
-        <p className="text-xs text-slate-500 dark:text-slate-500">
-          {new Date(file.createdAt).toLocaleDateString()}
-        </p>
-      </div>
-
-      {/* RIGHT-SIDE ARROW*/}
-      <div className="ml-auto opacity-0 group-hover:opacity-100 transition">
-        <svg
-          className="h-4 w-4 text-purple-400"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
-      </div>
-    </div>
-  );
-}
-
-function FolderCard({
-  folder,
-  onClick,
-  onDoubleClick,
-  isSelected,
-}: {
-  folder: Folder;
-  onClick: () => void;
-  onDoubleClick: () => void;
-  isSelected?: boolean;
-}) {
-  return (
-    <div
-      onClick={onClick}
-      onDoubleClick={onDoubleClick}
-      className={`
-        group w-full flex items-center gap-4 rounded-2xl p-4 cursor-pointer
-        backdrop-blur-xl transition-all border
-        bg-white/60 dark:bg-purple-400/20
-        shadow-[0_2px_10px_rgba(0,0,0,0.15)]
-        hover:shadow-[0_4px_22px_rgba(168,85,247,0.35)]
-        hover:scale-[1.01]
-
-        ${isSelected
-          ? "border-purple-500/70 ring-2 ring-purple-400"
-          : "border-white/20 dark:border-white/10"}
-      `}
-    >
-      {/* ICON */}
-      <div className="flex items-center justify-center">
-        <FolderOpen className="w-10 h-10 text-purple-300 group-hover:text-purple-300 transition" />
-      </div>
-
-      {/* FOLDER INFO */}
-      <div className="flex flex-col min-w-0">
-        <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-          {folder.name}
-        </p>
-
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          Folder
-        </p>
-      </div>
-
-      {/* RIGHT-SIDE ARROW */}
-      <div className="ml-auto opacity-0 group-hover:opacity-100 transition">
-        <svg
-          className="h-4 w-4 text-purple-400"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
-      </div>
-    </div>
-  );
-}
-
-function formatFileSize(bytes: number): string {
-  if (!bytes) return "0 Bytes";
-  const units = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  const size = (bytes / Math.pow(1024, i)).toFixed(2);
-  return `${size} ${units[i]}`;
 }

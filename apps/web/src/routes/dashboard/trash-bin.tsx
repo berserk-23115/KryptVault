@@ -154,7 +154,7 @@ function RouteComponent() {
       </div>
 
       {files.length === 0 ? (
-        <Card className="p-12">
+        <Card className="p-76 bg-black/5 border-dashed border-2 border-muted-foreground/20">
           <div className="flex flex-col items-center justify-center text-center gap-4">
             <Trash2 className="h-16 w-16 text-muted-foreground/50" />
             <div>

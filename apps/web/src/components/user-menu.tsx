@@ -41,7 +41,7 @@ export default function UserMenu() {
 					{session.user?.name || session.user?.email || "User"}
 				</Button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent className="bg-card">
+			<DropdownMenuContent className="bg-card bg-white/80 dark:bg-gray-900/80">
 				<DropdownMenuLabel>My Account</DropdownMenuLabel>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem asChild className="cursor-pointer">

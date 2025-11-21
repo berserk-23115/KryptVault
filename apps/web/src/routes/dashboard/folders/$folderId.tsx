@@ -8,6 +8,7 @@ import {
   type FolderDetails,
   type FolderFile,
 } from "@/lib/folders-api";
+import { filesApi, type FileMetadata } from "@/lib/files-api";
 import { save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import {
@@ -33,6 +34,45 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ButtonGroup } from "@/components/ui/button-group";
+
+import {
+  File as FileIcon,
+  FileImage,
+  FileAudio,
+  FileVideo,
+  FileArchive,
+  FileText,
+  FileCode,
+} from "lucide-react";
+
+function getFileIcon(ext?: string) {
+  if (!ext) return FileIcon;
+
+  const mapping: Record<string, any> = {
+    pdf: FileText,
+    doc: FileText,
+    docx: FileText,
+    txt: FileText,
+    jpg: FileImage,
+    jpeg: FileImage,
+    png: FileImage,
+    gif: FileImage,
+    svg: FileImage,
+    mp3: FileAudio,
+    wav: FileAudio,
+    mp4: FileVideo,
+    mov: FileVideo,
+    avi: FileVideo,
+    zip: FileArchive,
+    rar: FileArchive,
+    "7z": FileArchive,
+    js: FileCode,
+    ts: FileCode,
+    json: FileCode,
+  };
+
+  return mapping[ext] || FileIcon;
+}
 
 export const Route = createFileRoute("/dashboard/folders/$folderId")({
   component: RouteComponent,
@@ -489,8 +529,8 @@ function RouteComponent() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-neutral-300 dark:border-neutral-800">
-                    <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300 w-12">
-                      <Checkbox />
+                    <th className="py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300 w-12">
+                      #
                     </th>
                     <th className="text-left py-4 px-4 font-semibold text-neutral-700 dark:text-neutral-300">
                       Name
@@ -510,7 +550,7 @@ function RouteComponent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {folderDetails.files.map((file) => (
+                  {folderDetails.files.map((file, index) => (
                     <tr
                       key={file.fileId}
                       onClick={() => setSelectedFile(file)}
@@ -520,21 +560,12 @@ function RouteComponent() {
                           : ""
                       }`}
                     >
-                      <td className="py-4 px-4">
-                        <Checkbox
-                          checked={selectedFile?.fileId === file.fileId}
-                          onCheckedChange={() =>
-                            setSelectedFile(
-                              selectedFile?.fileId === file.fileId ? null : file
-                            )
-                          }
-                        />
+                      {/* SERIAL NUMBER */}
+                      <td className="py-4 px-4 text-neutral-500 dark:text-neutral-400">
+                        {index + 1}
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
-                          <span className="text-2xl">
-                            {getFileIcon(file.originalFilename)}
-                          </span>
                           <span className="text-neutral-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 cursor-pointer">
                             {file.originalFilename}
                           </span>
@@ -589,40 +620,12 @@ function RouteComponent() {
             // GRID VIEW
             <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
               {folderDetails.files.map((file) => (
-                <div
+                <FileCard
                   key={file.fileId}
+                  file={file}
                   onClick={() => setSelectedFile(file)}
-                  className={`rounded-xl overflow-hidden shadow-md border 
-                ${
-                  selectedFile?.fileId === file.fileId
-                    ? "border-purple-500 ring-2 ring-purple-500"
-                    : "border-neutral-300 dark:border-neutral-700"
-                }
-                bg-white dark:bg-purple-900/20 
-                hover:scale-[1.02] hover:shadow-lg transition cursor-pointer`}
-                >
-                  <div className="h-36 w-full bg-linear-to-br from-purple-200 dark:from-purple-500/20 to-blue-200 dark:to-blue-500/20 flex items-center justify-center">
-                    <span className="text-6xl">
-                      {getFileIcon(file.originalFilename)}
-                    </span>
-                  </div>
-
-                  <div className="p-4">
-                    <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                      {file.originalFilename}
-                    </p>
-                    <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
-                      {formatFileSize(file.fileSize)}
-                    </p>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
-                      {new Date(file.createdAt).toLocaleDateString("en-US", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </p>
-                  </div>
-                </div>
+                  isSelected={selectedFile?.fileId === file.fileId}
+                />
               ))}
             </div>
           )}
@@ -655,7 +658,6 @@ function RouteComponent() {
         <FileSidebar
           file={selectedFile as any}
           onClose={() => setSelectedFile(null)}
-          onPreview={() => handleDownload(selectedFile)}
           onDownload={() => handleDownload(selectedFile)}
           onDelete={() => handleDelete(selectedFile)}
           onShare={() => {}}
@@ -666,4 +668,80 @@ function RouteComponent() {
       )}
     </main>
   );
+
+  
+}
+function FileCard({
+  file,
+  onClick,
+  isSelected,
+}: {
+  file: FolderFile | FileMetadata;
+  onClick: () => void;
+  isSelected?: boolean;
+}) {
+  // Normalize ID (folder files use fileId)
+  const fileId = (file as any).id || (file as any).fileId;
+
+  const ext = file.originalFilename.split(".").pop()?.toLowerCase();
+  const Icon = getFileIcon(ext);
+
+  return (
+    <div
+      onClick={onClick}
+      className={`
+        group w-full flex items-center gap-4 rounded-2xl p-4 cursor-pointer
+        backdrop-blur-xl transition-all border
+        bg-white/60 dark:bg-gray-900/70
+        shadow-[0_2px_10px_rgba(0,0,0,0.15)]
+        hover:shadow-[0_0_22px_rgba(168,85,247,0.35)]
+        hover:scale-[1.01]
+
+        ${isSelected
+          ? "border-purple-500/70 ring-2 ring-purple-400"
+          : "border-white/20 dark:border-white/10"}
+      `}
+    >
+      {/* ICON */}
+      <div className="flex items-center justify-center">
+        <Icon className="w-10 h-10 text-purple-300 group-hover:text-purple-300 transition" />
+      </div>
+
+      {/* TEXT */}
+      <div className="flex flex-col min-w-0">
+        <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+          {file.originalFilename}
+        </p>
+
+        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+          {formatFileSize(file.fileSize)} • {ext?.toUpperCase() || "FILE"}
+        </p>
+
+        <p className="text-xs text-slate-500 dark:text-slate-500">
+          {new Date(file.createdAt).toLocaleDateString()}
+        </p>
+      </div>
+
+      {/* RIGHT ARROW */}
+      <div className="ml-auto opacity-0 group-hover:opacity-100 transition">
+        <svg
+          className="h-4 w-4 text-purple-400"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function formatFileSize(bytes: number): string {
+  if (!bytes) return "0 Bytes";
+  const units = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  const size = (bytes / Math.pow(1024, i)).toFixed(2);
+  return `${size} ${units[i]}`;
 }
